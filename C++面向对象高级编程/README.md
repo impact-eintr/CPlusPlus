@@ -26,11 +26,19 @@ public:
 
 > 内联函数 (inline)
 
+
 函数如果在class body中定义完成，那么就会成为incline函数候选者
 ``` c++
 
   double real () const {return re;}
 ```
+
+- inline 只适用于函数体内代码简单的函数，不能包含复杂的结构控制语句，如while、switch，并且内联函数本身不能是递归函数
+- inline函数仅仅是对编译器的建议，最后能否真正的内联，决定在编译器。
+- inline关键字必须与函数定义体放在一起才能使函数成为内联。仅将inline放在函数声明前，不起任何作用。
+
+**建议：因为上一条的原因，最好将内联函数的定义放在头文件里。**
+
 
 > 访问级别
 
@@ -214,7 +222,39 @@ inline complex& _doapl (complex* ths, const complex& r){
 
 同一个class的object之间互为友元
 
+> 默认参数
+
+在使用带有默认参数的函数时有两点要注意：
+
+（1）如果函数的定义在函数调用之前，则应在函数定义中给出默认值。如果函数的定义在函数调用之后，则在函数调用之前需要有函数声明，此时必须在函数声明中给出默认值，在函数定义时可以不给出默认值。
+
+（2）一个函数不能既作为重载函数，又作为有默认参数的函数。因为当调用函数时如果少写一个参数，系统无法判定是利用重载函数还是利用默认参数的函数，出现二义性，系统无法执行。
+
+默认参数一般在函数声明中提供。如果程序中既有函数的声明又有函数的定义时，则定义函数时不允许再定义参数的默认值。
+
+``` c++
+int a=1；
+int fun(int)；
+int g(int x；fun(a))； //OK，允许默认值为函数
+```
+
+默认值不可以是局部变量，因为默认参数的函数调用是在编译时确定的，而局部变量的位置与值在编译时均无法确定。
+
+``` c++
+int main()
+{
+    int i;
+    void g(int x=i);  // error C2587: “i”: 非法将局部变量作为默认参数
+    return 0;
+}
+```
+
+- 由此设置默认参数需要注意2点
+1. 只能由后往前
+2. 不能对少于参数个数的函数进行重载
+
 ## 操作符重载与临时对象
+**c++要求重载函数具有不同的签名。返回类型不是函数签名的一部分。**
 
 - 在c++中，**操作符其实是一种函数**
 - this 是一个`指针`
@@ -261,17 +301,67 @@ complex operator + (const double x, const complex& y) {
 ```
 
 
-### 复习
+## 三大函数(Big Three)
+
+首先，我们来设计一个String
+
+- 拷贝构造
+- 拷贝赋值
+- 析构函数
+
+``` c++
+#ifndef STRING_H_
+#define STRING_H_
+
+class String
+{
+public:
+  String(const char* cstr = 0);
+  String(const String& str); // 拷贝构造
+  String& operator=(const String& str); // 拷贝复制
+  ~String(); // 类中有指针的类一般需要析构
+  char* get_c_str() const { return m_data; }; // 对于无需修改数据的函数一定要加上 const !!!
+private:
+  char *m_data;
+};
+
+#endif // STRING_H_
+
+```
+
+### 拷贝构造
+
+``` c++
+inline String::String(const String& str) {
+  m_data = new char[strlen(str.m_data) + 1]; // 直接取另一个object的private(兄弟之间互为友元)
+  strcpy(m_data, str.m_data);
+}
+```
+
+### 拷贝赋值
+先将自己的内容清空，然后将目标内赋值给自己
+
+``` c++
+inline String& String::operator=(const String& str) {
+  if (this == &str) { // 检测自我赋值
+    return *this;
+  }
+
+  delete[] m_data;
+  m_data = new char[strlen(str.m_data)+1];
+  strcpy(m_data, str.m_data);
+  return *this;
+}
+```
 
 
+### 析构函数
 
-
-
-## 三大函数
-
-
-
-
+``` c++
+inline String::~String() {
+  delete[] m_data;
+}
+```
 
 
 ## 堆 栈 与内存管理
