@@ -42,7 +42,7 @@ public:
 
 > 访问级别
 
-- public 部分调用函数
+- public 部分调用函数 默认 (这是与struct 最大的不同 struct 是public的)
 - private 所有的数据 内部使用的函数
 - protect 子类可用
 
@@ -365,9 +365,552 @@ inline String::~String() {
 
 
 ## 堆 栈 与内存管理
+### stack
+是存在于某个作用域的一块内存空间。例如当你调用函数，函数本身即会形成一个stack用来防止它所接收的参数，以及返回值地址
+
+在函数本体内声明的任何变量，其所使用的内存块都来自于上述的stack
+
+``` c++
+Complex c1(1, 2);
+```
+
+
+### Heap
+是由操作系统提供的一块global内存空间，程序可以动态分配
+
+``` c++
+Complex *p = new Complex(3);
+```
+
+### 对象的生命周期
+> stack objects的生命期
+c1 就是作所谓的stack object,其声生命在作用域结束之后结束，被称为auto object,在离开作用域的时候会自动调用析构函数
+
+> static local objects 的生命期
+
+``` c++
+{
+  static Complex c2(1, 2);
+}
+```
+c2是所谓的static object 其生命在作用域结束之后依然存在 直到整个个程序结束
+
+> global object
+
+``` c++
+class Complex {};
+
+Complex c3(1, 2);
+
+int main() {}
+```
+
+c3就是所谓的global object 其生命在整个程序结束之后才结束。
+
+> heap object的生命期
 
 
 
+``` c++
+class Complex{};
+
+{
+  Complex* p = new Complex;
+  ...
+  
+  delete p;
+}
+```
+
+p所知的便是heap object，其生命在它被delete之际结束
+
+``` c++
+class Complex{};
+
+{
+  Complex* p = new Complex;
+}
+```
+
+以上程序出现内存泄露，因为当作用域结束，p所指向的heap object依然存在，但指针p的生命却结束了，作用域之外再也看不到p，也就没机会delete p
 
 
+### new
+**先分配内存，在调用构造函数**
+
+``` c++
+Complex *pc = new Complex(1, 2);
+```
+
+编译器可能会转化为下面这样
+
+``` c++
+1 void* mem = operator new(sizeof(Complex)); // 分配内存
+  - operator new 内部会调用malloc
+
+2 pc = static_cast<Complex*>(mem); // 转型
+
+3 pc->Complex::Complex(1, 2); // 构造函数
+```
+
+### delete
+
+**先调用析构函数，在释放memory**
+
+``` c++
+String *ps = new String("Hello");
+
+delete ps;
+```
+
+可能转化为以下过程
+
+``` c++
+String::~String(ps); // 析构函数
+  operator delete(ps); // 释放内存 内部调用free(ps)
+```
+
+
+### 动态分配所得的内存块(memory block)
+![img](img/动态分配内存块.png)
+
+
+### 动态分配所得的array
+**new type[size] 要搭配 delete []**
+
+![img](img/动态分配内存数组.png)
+
+![img](img/delete[].png)
+
+## 补充
+
+### static
+
+``` c++
+complex c1, c2, c3;
+cout << c.real(); // 相当于 cout << complex::real(&c1); &c1 其实就是this
+```
+
+当函数或数据加上`static`关键字后，就脱离了对象，分配到静态数据区
+
+static function 没有 this
+
+``` c++
+class Account {
+public:
+  static double m_rate;
+  static void set_rate(const double& x) {m_rate = x};
+}
+
+// 定义静态数据
+double Account::m_rate = 0.022;
+
+int main() {
+  Account::set_rate(0.033); //. 通过class name 调用
+  
+  Account a; 
+  a.set_rate(0.027); // 通过object调用
+}
+```
+
+### 将构造函数放到private区
+
+``` c++
+class A {
+public:
+  static A& getInstance() {
+    return a;
+  }
+private:
+  A();
+  A(const A& rhs);
+  static A a;
+  ...
+};
+```
+
+通过public static func 获取 private static object(位于静态区)，以实现单例模式
+
+> 更好的写法
+
+``` c++
+class A {
+public:
+  static A& getInstance();
+private:
+  A();
+  A(const A& rhs);
+  ...
+};
+
+A& A::getInstance() {
+  static A a; // 不调用就不会产生 一旦产生一直存在
+  return a;
+}
+
+```
+
+### cout
+![img](img/cout补充.png)
+
+### class template 类模板
+
+``` c++
+template<tempname T>
+class complex
+{
+public:
+  complex(T r = 0, T i = 0) : re (r), im(i) {}
+  complex& operator += (const complex&);
+  T real() const { return re; }
+  T imag() const { return im; }
+private:
+  T re, im;
+  
+  friend complex& _doapl(complex, const complex&);
+}
+```
+
+``` c++
+{
+  complex<double> c1(2.5, 1.5);
+  complex<int> c2(2, 6);
+}
+```
+
+### function template 函数模板
+
+``` c++
+class stone
+{
+public:
+  stone(int w, int h, int we) : _w(w), _h(h), _weight(we) {}
+  bool operator< (const stone& rhs) const {
+    return _weight < rhs._weight;
+  }
+private:
+  int _w, _h, _weight;
+};
+
+template <class T>
+inline const T& min(const T& a, const T& b) {
+  return b < a ? b : a;
+}
+
+int main() {
+  stone s1(1, 2, 3);
+  stone s2(2, 3, 4);
+  stone s3;
+  
+  r3 = min(r1, r2)
+}
+```
+
+### namespace
+
+``` c++
+namespace std{
+
+}
+```
+
+``` c++
+#include <iostream>
+using namespace std;
+
+int main() {
+  cin << ...;
+}
+```
+
+``` c++
+#include <iostream>
+
+using std::cout;
+
+int main() {
+  std::cin >> ...;
+  cout << ...;
+}
+```
+
+``` c++
+#include <iostream>
+
+int main() {
+  std::cout << ...;
+}
+```
+
+## OOP 
+
+Object Oriented Programming
+
+### Comnposition 组合
+将零件组合成新的产品 have a
+
+```
+template <class T, class Qequence = deque<T> >
+class queue {
+protected:
+  Sequence c; // 底层容器
+public:
+  // 一下完全利用c的操作函数完成
+  bool empty() const {return c.empty();}
+  size_type size() const {return c.size();}
+  reference front() { return c.front();}
+  reference back() {return c.back();}
+  void push(const value_type& x) { c.push_back(x);}
+  void pop() { c.pop_front();}
+}
+
+```
+
+![img](img/queue组合.png)
+
+> 构造与析构
+
+- 构造由内而外
+
+``` c++
+Container::Container() : Component() {}
+```
+
+- 析构由外而内
+``` c++
+Container::~Container() { ~Component(); }
+```
+
+注意，编译器只能帮我们调用default构造器，有需要的话需要自己实现
+### delegation 委托
+
+也就是Composition by reference (Handle / Body)
+``` c++
+class StringRep;
+class String {
+public:
+  String();
+  String(const char* s);
+  String(const String& s);
+  String &operator=(const String& s);
+  ~String();
+private:
+  StringRep *rep; // pimpl
+};
+
+namespace{
+  class StringRep {
+    friend class String;
+    StringRep(const char*);
+    ~StringRep();
+    int count;
+    char* rep;
+  };
+}
+
+```
+
+![img](img/委托StringRep.png)
+
+也可以叫做 `编译防火墙`
+
+这里还可以使用 `写时复制` 处理共享数据
+
+### Inheritance 继承
+is a
+
+``` c++
+struct _List_node_base
+{
+  _List_node_base* _M_next;
+  _List_node_base* _M_prev;
+};
+
+template<typename _Tp>
+struct _List_node : public _List_node_base
+{
+  _Tp _M_data;
+};
+```
+
+![img](img/继承构造.png)
+
+注意：
+- base class 的析构函数必须是virtual，否则会出现 `undefined behavior`
+
+
+## 虚函数
+
+- non-virtual函数 不希望派生类重新定义(override 覆写)它
+- virtual函数 希望派生类重新定义(override) 它，而且它已经有了默认定义
+- pure virtual函数 希望派生类**一定要**重新定义(override) 它，而且它已经有了默认定义
+
+``` c++
+class Shape{
+public:
+  virtual void draw() const = 0;
+  virtual void error(const std::string& msg);
+  int objectID() const;
+  ...
+};
+
+class Rectange: public Shape {...};
+class Ellipse: public Shape {...};
+```
+
+通过子类调用父类方法，父类的方法再调用子类实现的虚函数(通过this)
+
+![虚函数调用过程](img/虚函数调用过程.png)
+
+
+> 委托 + 继承
+
+观察
+``` c++
+class Subject
+{
+  int m_value;
+  vector<Observer*> m_views;
+public:
+  void attach(Observer* obs) {
+    m_views.push_back(obs);
+  }
+  
+  void set_val(int value) {
+    m_value = value;
+    notify();
+  }
+  
+  void notify(){
+    for (int i = 0;i < m_views;i++) {
+      m_views[i]->update(this, m_value); // 给所有的观察者传递消息
+    }
+  }
+};
+
+// 这个观察者可以继承
+class Observer
+{
+public:
+  virtual void update(Subject* sub, int value) = 0;
+};
+```
+
+
+复合
+``` c++
+#include <vector>
+
+using namespace std;
+
+class Component
+{
+  int value;
+public:
+  Component(int val) { value = val;}
+  virtual void add(Component*) {}
+};
+
+class Primitive: public Component
+{
+public:
+  Primitive(int val):Component(val) {}
+
+};
+
+class Composite : public Component
+{
+  vector <Component*> c;
+public:
+  Composite(int val): Component(val) {}
+
+  void add(Component* elem) {
+    c.push_back(elem);
+  }
+};
+
+```
+
+
+Prototype
+![img](img/prototype.png)
+
+``` c++
+#include <iostream>
+
+using namespace std;
+
+enum imageType{
+  LSAT,
+  SPOT,
+};
+
+class Image
+{
+public:
+  virtual void draw() = 0;
+  static Image* findAndClone(imageType);
+protected:
+  virtual imageType returnType() = 0;
+  virtual Image *clone() = 0;
+  // As each subclass of Image is declared, it registers its protype
+  static void addProtoType(Image *image) {
+    _prototypes[_nextSlot++] = image;
+  }
+private:
+  // addPrototype() saves each registered prototype here
+  // 声明
+  static Image* _prototypes[10];
+  static int _nextSlot;
+};
+
+// 定义
+Image *Image::_prototypes[];
+
+// 定义
+int Image::_nextSlot;
+
+Image *Image::findAndClone(imageType type) {
+  for (int i = 0;i < _nextSlot;i++) {
+    if (_prototypes[i]->returnType() == type) {
+      return _prototypes[i]->clone();
+    }
+  }
+  return nullptr;
+}
+
+class LandSatImage: public Image
+{
+public:
+  imageType returnType(){
+    return LSAT;
+  }
+
+  void draw() {
+    cout << "LSAT::draw" << _id << endl;
+  }
+
+  Image *clone() {
+    return new LandSatImage;
+  }
+protected:
+  LandSatImage(int foo) {
+    _id = _count++;
+  }
+
+private:
+  static LandSatImage _landSatImage;
+  LandSatImage() {
+    addProtoType(this);
+  }
+  int _id;
+  static int _count;
+};
+
+LandSatImage LandSatImage::_landSatImage; // 由于这个类的无参构造函数是私有的 
+                                          // static obj构造时会注册当前类型
+                                          // 所以一旦有这个子类就会唯一一次地去注册这个新类型
+int LandSatImage::_count = 1;
+
+```
 
