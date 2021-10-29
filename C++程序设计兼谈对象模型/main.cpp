@@ -1,5 +1,6 @@
 #include <cstddef>
 #include <iostream>
+#include <string>
 #include <memory>
 
 namespace fraction {
@@ -153,6 +154,7 @@ namespace Virtual {
   private:
     int m_data_4;
   };
+
 }
 
 int main(int argc, char *argv[]) {

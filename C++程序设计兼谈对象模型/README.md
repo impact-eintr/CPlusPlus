@@ -564,17 +564,248 @@ int main() {
 
 ## 关于动态绑定(看看汇编)
 
+``` c++
+B b;
 
+A a = (A)b;
+a.vfunc1(); // 这句是静态绑定
+```
 
+![img](img/静态绑定汇编.png)
+
+``` c++
+A* pa = new B;
+ps->vfunc1();
+
+pa = &b;
+pa->vfunc1();
+```
+
+![img](img/动态绑定汇编.png)
 
 ## 谈谈const
 
+||const object(data members 不得变动)|non-const object(data members可以变动|
+|:--------------------------------------------:|:-:|:-:|
+|const member functions(保证不修改data members)| T | T |
+|non-const member functions(不保证不修改data members)| F | T |
 
+**当成员函数的const和non-const版本同时存在，const object只能调用 const 版本 non-const object只能调用 non-const版本**
 
+> std::String中的设计
+
+**当成员函数的const和non-const版本同时存在，const object只能调用 const 版本 non-const object只能调用 non-const版本**
+
+``` c++
+class template std::basic_string<...>中有如下两个member functions:
+
+charT operator[] (size_typr pos) const {
+  // 不需要考虑写时复制
+}
+
+reference operator[] (size_type pos) {
+  // 必须要考虑写时复制
+}
+```
 
 ## 关于New Delete
 
+> 没有虚函数
 
+``` c++
+#include <iostream>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string>
+
+class Foo {
+public:
+  int _id;
+  long _data;
+  std::string _str;
+
+public:
+  Foo() : _id(0) {
+    std::cout << "调用default ctor.this=" << this << "id=" << _id << std::endl;
+  }
+  Foo(int i) : _id(i) {
+    std::cout << "调用default ctor.this=" << this << "id=" << _id << std::endl;
+  }
+  //virtual ~Foo() { std::cout << "调用dtor.this=" << this << "id=" << _id << std::endl; }
+  ~Foo() { std::cout << "调用dtor.this=" << this << "id=" << _id << std::endl; }
+
+  static void *operator new(size_t size);
+  static void operator delete(void *pdead, size_t size);
+  static void *operator new[](size_t size);
+  static void operator delete[](void *pdead, size_t size);
+};
+
+void *Foo::operator new(size_t size) {
+  std::cout << "调用new() size=" << size <<std::endl;
+  std::cout << "先申请内存\n";
+  Foo *p = (Foo *)malloc(size);
+  return p;
+}
+
+void Foo::operator delete(void *pdead, size_t size) {
+  std::cout << "调用delete()\n";
+  std::cout << "free内存\n";
+  free(pdead);
+}
+
+void *Foo::operator new[](size_t size) {
+  std::cout << "调用new[]() size=" << size <<std::endl;
+  std::cout << "先申请内存\n";
+  Foo *p = (Foo *)malloc(size);
+  return p;
+}
+
+void Foo::operator delete[](void *pdead, size_t size) {
+  std::cout << "调用delete[]()\n";
+  std::cout << "free内存\n";
+  free(pdead);
+}
+
+int main(int argc, char *argv[]) {
+
+  std::cout << sizeof(Foo) << std::endl;
+
+  Foo *p = new Foo(7);
+  delete p;
+
+  Foo *pArray = new Foo[5];
+  delete[] pArray;
+
+  return 0;
+}
+
+```
+
+结果
+
+``` bash
+48
+调用new() size=48
+先申请内存
+调用default ctor.this=0x55ee164252c0id=7
+调用dtor.this=0x55ee164252c0id=7
+调用delete()
+free内存
+调用new[]() size=248
+先申请内存
+调用default ctor.this=0x55ee16425308id=0
+调用default ctor.this=0x55ee16425338id=0
+调用default ctor.this=0x55ee16425368id=0
+调用default ctor.this=0x55ee16425398id=0
+调用default ctor.this=0x55ee164253c8id=0
+调用dtor.this=0x55ee164253c8id=0
+调用dtor.this=0x55ee16425398id=0
+调用dtor.this=0x55ee16425368id=0
+调用dtor.this=0x55ee16425338id=0
+调用dtor.this=0x55ee16425308id=0
+调用delete[]()
+free内存
+
+```
+
+> 有虚函数
+
+``` c++
+
+#include <iostream>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string>
+
+class foo {
+public:
+  int _id;
+  long _data;
+  std::string _str;
+
+public:
+  foo() : _id(0) {
+    std::cout << "调用default ctor.this=" << this << "id=" << _id << std::endl;
+  }
+  foo(int i) : _id(i) {
+    std::cout << "调用default ctor.this=" << this << "id=" << _id << std::endl;
+  }
+  virtual ~foo() { std::cout << "调用dtor.this=" << this << "id=" << _id << std::endl; }
+  //~foo() { std::cout << "调用dtor.this=" << this << "id=" << _id << std::endl; }
+
+  static void *operator new(size_t size);
+  static void operator delete(void *pdead, size_t size);
+  static void *operator new[](size_t size);
+  static void operator delete[](void *pdead, size_t size);
+};
+
+void *foo::operator new(size_t size) {
+  std::cout << "调用new() size=" << size <<std::endl;
+  std::cout << "先申请内存\n";
+  foo *p = (foo *)malloc(size);
+  return p;
+}
+
+void foo::operator delete(void *pdead, size_t size) {
+  std::cout << "调用delete()\n";
+  std::cout << "free内存\n";
+  free(pdead);
+}
+
+void *foo::operator new[](size_t size) {
+  std::cout << "调用new[]() size=" << size <<std::endl;
+  std::cout << "先申请内存\n";
+  foo *p = (foo *)malloc(size);
+  return p;
+}
+
+void foo::operator delete[](void *pdead, size_t size) {
+  std::cout << "调用delete[]()\n";
+  std::cout << "free内存\n";
+  free(pdead);
+}
+
+int main(int argc, char *argv[]) {
+
+  std::cout << sizeof(foo) << std::endl;
+
+  foo *p = new foo(7);
+  delete p;
+
+  foo *parray = new foo[5];
+  delete[] parray;
+
+  return 0;
+}
+
+```
+
+结果
+
+``` bash
+56
+调用new() size=56
+先申请内存
+调用default ctor.this=0x55d683a2f2c0id=7
+调用dtor.this=0x55d683a2f2c0id=7
+调用delete()
+free内存
+调用new[]() size=288
+先申请内存
+调用default ctor.this=0x55d683a2f308id=0
+调用default ctor.this=0x55d683a2f340id=0
+调用default ctor.this=0x55d683a2f378id=0
+调用default ctor.this=0x55d683a2f3b0id=0
+调用default ctor.this=0x55d683a2f3e8id=0
+调用dtor.this=0x55d683a2f3e8id=0
+调用dtor.this=0x55d683a2f3b0id=0
+调用dtor.this=0x55d683a2f378id=0
+调用dtor.this=0x55d683a2f340id=0
+调用dtor.this=0x55d683a2f308id=0
+调用delete[]()
+free内存
+
+```
 
 ## 
 
