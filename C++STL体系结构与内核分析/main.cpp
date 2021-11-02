@@ -453,16 +453,9 @@ namespace unoredred_map_test {
 void test_unoredered_map() { cout << "test_unoredered_map().......\n"; }
 } // namespace unoredred_map_test
 
+
+
 int main(int argc, char *argv[]) {
 
-  // array_test::test_array();
-  // vector_test::test_vector();
-  // list_test::test_list();
-  // flist_test::test_flist();
-  // deque_test::test_deque();
-  // multiset_test::test_multiset();
-  // multimap_test::test_multimap();
-  // unordered_multiset_test::test_unoredered_multiset();
-  unordered_multimap_test::test_unoredered_multimap();
   return 0;
 }

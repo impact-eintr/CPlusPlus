@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
 ```
 
 
-## 容器
+## 容器使用
 - Array
 - Vector
 - Dqueue
@@ -564,6 +564,177 @@ void test_unoredered_multimap() {
 
 ## 分配器
 
+> 先谈谈operator new() 和 malloc()
+
+operator new() 会调用 malloc() 然后根据操作系统返回内存
+
+> STL(vc6) 对allocator的使用
+
+``` c++
+template<class _Ty, class _A = allocator<_Ty> > class vector {
+  ...
+};
+
+template<class _Ty, class _A = allocator<_Ty> > class list {
+  ...
+};
+
+template<class _Ty, class _A = allocator<_Ty> > class deque {
+  ...
+};
+```
+
+> gcc2.91 的alloc (具体应该会在内存管理章节讲解)
+
+``` c++
+template <class _Tp>
+class allocator {
+  typedef alloc _Alloc;          // The underlying allocator.
+public:
+  typedef size_t     size_type;
+  typedef ptrdiff_t  difference_type;
+  typedef _Tp*       pointer;
+  typedef const _Tp* const_pointer;
+  typedef _Tp&       reference;
+  typedef const _Tp& const_reference;
+  typedef _Tp        value_type;
+
+  template <class _Tp1> struct rebind {
+    typedef allocator<_Tp1> other;
+  };
+
+  allocator() __STL_NOTHROW {}
+  allocator(const allocator&) __STL_NOTHROW {}
+  template <class _Tp1> allocator(const allocator<_Tp1>&) __STL_NOTHROW {}
+  ~allocator() __STL_NOTHROW {}
+
+  pointer address(reference __x) const { return &__x; }
+  const_pointer address(const_reference __x) const { return &__x; }
+
+  // __n is permitted to be 0.  The C++ standard says nothing about what
+  // the return value is when __n == 0.
+  _Tp* allocate(size_type __n, const void* = 0) {
+    return __n != 0 ? static_cast<_Tp*>(_Alloc::allocate(__n * sizeof(_Tp)))
+                    : 0;
+  }
+
+  // __p is not permitted to be a null pointer.
+  void deallocate(pointer __p, size_type __n)
+    { _Alloc::deallocate(__p, __n * sizeof(_Tp)); }
+
+  size_type max_size() const __STL_NOTHROW
+    { return size_t(-1) / sizeof(_Tp); }
+
+  void construct(pointer __p, const _Tp& __val) { new(__p) _Tp(__val); }
+  void destroy(pointer __p) { __p->~_Tp(); }
+};
+
+```
+
+![img](img/alloc_gcc.png)
+
+
+> 使用方法
+```
+vector<string, __gun_cxx::__poll_alloc<string>> vc;
+```
+
+## 容器剖析
+
+> 序列式容器
+
+- array(since C++ 11)
+- vector
+  - heap(以算法形式呈现)
+  - priority_queue
+- list(单向)
+- slist(单向 非标准)
+- deque(分段连续空间)
+  - stack(container adapter)
+  - queue(container adapter)
+
+> 关联式容器
+- rv_tree(非公开)
+  - set
+  - map
+  - multiset
+  - multimap
+- hashtable(非公开) 
+  - hash_set
+  - hash_map
+  - hash_multiset
+  - hash_multimap
+
+### list
+
+![img](img/list_src结构.png)
+
+![img](img/list_src_node.png)
+
+``` c++
+#include <ext/pool_allocator.h>
+
+template <class T>
+struct __list_node {
+  typedef void* void_pointer;
+  void_pointer prev;
+  void_pointer next;
+  T data;
+};
+
+template <class T, class Ref, class Ptr>
+struct __list_iterator {
+
+  typedef __list_iterator<T, Ref, Ptr> self;
+  // TODO
+  typedef T value_type;
+  typedef Ptr pointer;
+  typedef Ref reference;
+
+  typedef __list_node<T>* link_type;
+  // TODO
+  link_type node;
+
+  reference operator*() const { return (*node).data; }
+  pointer operator->() const { return &(operator*()); }
+  // self& 和 self的区别是为了处理 ++++i i++++(这种c++不支持)
+  // ++i
+  self& operator++() {
+    node = (link_type)((*node).next);
+    return *this;
+  }
+  // i++
+  self operator++(int) {
+    self tmp = *this;
+    ++*this;
+    return tmp;
+  }
+};
+
+template <class T, class Alloc = __gnu_cxx::__pool_alloc<T>> class list {
+  protected:
+    typedef __list_node<T> list_node;
+  public:
+    typedef list_node* link_type;
+    typedef __list_iterator<T, T&, T*> iterator;
+  protected:
+    link_type node; // 8bytes
+};
+
+```
+
+![img](img/list版本改进.png)
+
+### vector
+
+
+
+### array
+
+
+
+### forward_list
+
 
 
 
@@ -597,7 +768,44 @@ for (auto& elem : vec) {
 }
 ```
 
+### Iterator需要遵循的原则
 
+![img](img/迭代器的地位.png)
+
+迭代器将一段容器的范围传给算法，并通过iterator来操作元素，这时需要一些iterator的性质来优化其操作。
+
+``` c++
+#include <iterator>
+
+template<typename _Iter>
+inline typename std::iterator_traits<_Iter>::iterator_category
+__tierator_category(const _Iter&)
+{
+  return typename std::iterator_traits<_Iter>::iterator_category();
+} // 返回分类 [1]
+
+template<typename _RandonAccessIterator>
+void __rotate(
+  _RandonAccessIterator __first,
+  _RandonAccessIterator __middle,
+  _RandonAccessIterator __last,
+  std::random_access_iterator_tag) // 见[1]
+{
+  typedef typename std::iterator_traits<_RandonAccessIterator>::difference_type _Distance; // it的距离
+  typedef typename std::iterator_traits<_RandonAccessIterator>::value_type _valueType; // it的值类型
+  // ...
+}
+
+template<typename _ForwardIterator>
+inline void
+rotate(_ForwardIterator __first,
+       _ForwardIterator __middle,
+       _ForwardIterator __last)
+{
+  __rotate(__first, __middle, __last , std::__iterator_category(__first));
+}
+
+```
 
 
 ## 适配器
