@@ -7,7 +7,10 @@ namespace TinySTL{
   // 空间配置器 以字节为单位分配
   class alloc{
   private:
-    enum Ealign {ALIGN = 8}; // 小型去快的上调边界
+    enum EAlign {ALIGN = 8}; // 小型区块的上调边界
+    enum EMaxBytes {MAXBYTES = 128}; // 小型区块的上限 超过的区块由malloc分配
+
+
   };
 }
 
