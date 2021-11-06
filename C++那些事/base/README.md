@@ -679,6 +679,92 @@ int main() {
 ```
 
 # sizeof那些事
+- 空类的大小为 1 byte
+- 一个类中，虚函数本身、成员函数(包括静态与非静态)和静态数据成员都是不占用类对象的存储空间的
+- 对于包含虚函数的类，不管有多少个虚函数，只有一个虚指针，vptr的大小
+- 普通继承，派生类继承了所有积累的函数与成员，要按照字节对齐来计算大小
+- 虚函数继承，不管是单继承还是多继承，都是继承了基类的vptr
+- 虚继承 继承基类的vptr
+
+``` c++
+#include <iostream>
+
+using namespace std;
+
+class void_class {};
+
+class non_void_class {
+private:
+  int da;
+  void_class db;
+  long dc;
+
+public:
+};
+
+class Base {
+public:
+  virtual void vfunc() { cout << "this is Base.vfunc()\n"; }
+
+  void who() { cout << "this is Base.who()\n"; }
+
+private:
+  static int a;
+  static void_class b;
+  static long c;
+};
+
+class VBase {
+public:
+  virtual void vfunc1() { cout << "this is VBase.vfunc1()\n"; }
+
+  virtual void vfunc2() { cout << "this is VBase.vfunc2()\n"; }
+
+  virtual void who() { cout << "this is Base.who()\n"; }
+
+private:
+  static int a;
+  static void_class b;
+  static long c;
+};
+
+class Derive : public Base {
+private:
+  int da;
+  void_class db;
+  long dc;
+
+public:
+};
+
+class VDerive : public Base, public VBase {
+private:
+  int da;
+  void_class db;
+  long dc;
+
+public:
+  virtual void name() { cout << "I am VDerive\n"; }
+};
+
+int main() {
+  void_class v;
+  cout << "空类 " << sizeof(v) << endl;
+
+  Base b;
+  cout << "有虚函数 静态数据 " << sizeof(b) << endl; // 虚指针的大小
+
+  non_void_class nv;
+  cout << "非空类 有非静态数据 无虚函数 无继承 " << sizeof(nv) << endl;
+
+  Derive d;
+  cout << "单继承(父类有虚函数) 有非静态数据 " << sizeof(d) << endl;
+
+  VDerive vd;
+  cout << "多继承(父类有多个虚函数) 有非静态数据" << sizeof(vd) << endl;
+}
+
+```
 
 
 # 纯虚函数和抽象类那些事
