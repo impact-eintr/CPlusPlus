@@ -3,7 +3,22 @@
 
 using namespace std;
 
+class A {
+  int a_data;
 
+public:
+  A() {} // 无参构造函数
+  A(int data) : a_data(data) {} //有参构造函数
+  A(const A &a) : a_data(a.a_data) {} // 拷贝构造函数
+  A &operator=(const A &a) { // 拷贝赋值
+    if (this == &a) {
+      return *this;
+    }
+    a_data = a.a_data;
+    return *this;
+  }
+  virtual ~A() {}
+};
 
 class B {
   virtual void func() {}
