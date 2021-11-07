@@ -1164,13 +1164,446 @@ pt->fun1();
 
 # virtual那些事
 
-## 
+## 虚函数与运行多态
+
+虚函数的调用取决于指向或者引用的对象的类型，而不是指针或者引用自身的类型。
+
+``` c++
+#include <iostream>
+
+using namespace std;
+
+class Employee {
+public:
+  virtual void raiseSalary() { cout << 0 << endl; }
+  virtual void promote() {}
+};
+
+class Manager : public Employee {
+  virtual void raiseSalary() { cout << 100 << endl; }
+  virtual void promote() {}
+};
+
+class Engineer : public Employee {
+  virtual void raiseSalary() { cout << 200 << endl; }
+  virtual void promote() {}
+};
+
+void globalRaiseSalary(Employee *emp[], int n) {
+  for (int i = 0;i < n;i++) {
+    emp[i]->raiseSalary();
+  }
+}
+
+int main() {
+  Employee *emp[] = {
+    new Manager(),
+    new Engineer
+  };
+  globalRaiseSalary(emp, sizeof(emp)/sizeof(*emp));
+  return 0;
+
+}
+
+```
+
+## vptr与vtable
+
+见上章
+
+## 虚函数中默认参数
+
+**默认参数是静态绑定的，虚函数是动态绑定的。 默认参数的使用需要看指针或者引用本身的类型，而不是对象的类型。或者说默认参数的字典中没有virtual**
+
+``` c++
+#include <iostream>
+
+using namespace std;
+
+class Base {
+public:
+  virtual void fun(int x = 10) { cout << "Base::fun(), x = " << x << endl; }
+};
+
+class Derived : public Base {
+public:
+  virtual void fun(int x = 20) { cout << "Derived::fun(), x = " << x << endl; }
+};
+
+int main() {
+  Derived d1;
+  Base *bp = &d1;
+  bp->fun();
+  return 0;
+}
+
+```
+
+## 可以不可以
+
+> 静态函数可以声明为虚函数吗？
+
+原因主要有两方面：
+
+**静态函数不可以声明为虚函数，同时也不能被const 和 volatile 关键字修饰**
+
+static成员函数不属于任何类对象或类实例，所以即使给此函数加上virutal也是没有任何意义
+
+虚函数依靠vptr和vtable来处理。vptr是一个指针，在类的构造函数中创建生成，并且只能用this指针来访问它，静态成员函数没有this指针，所以无法访问vptr。
+
+``` c++
+virtual static void fun()  { }
+static void fun() const { }
+```
+
+> 构造函数可以为虚函数吗？ 
+
+**构造函数不可以声明为虚函数。同时除了inline|explicit之外，构造函数不允许使用其它任何关键字。**
+
+为什么构造函数不可以为虚函数？
+
+尽管虚函数表vtable是在编译阶段就已经建立的，但指向虚函数表的指针vptr是在运行阶段实例化对象时才产生的。 如果类含有虚函数，编译器会在构造函数中添加代码来创建vptr。 问题来了，如果构造函数是虚的，那么它需要vptr来访问vtable，可这个时候vptr还没产生。 因此，构造函数不可以为虚函数。
+
+我们之所以使用虚函数，是因为需要在信息不全的情况下进行多态运行。而构造函数是用来初始化实例的，实例的类型必须是明确的。 因此，构造函数没有必要被声明为虚函数。
 
 
-## 
+``` c++
+/**
+ * @file vir_con.cpp
+ * @brief 构造函数不可以声明为虚函数。同时除了inline之外，构造函数不允许使用其它任何关键字。
+ *
+ * 为什么构造函数不可以为虚函数？
+ *
+ * 尽管虚函数表vtable是在编译阶段就已经建立的，但指向虚函数表的指针vptr是在运行阶段实例化对象时才产生的。 如果类含有虚函数，编译器会在构造函数中添加代码来创建vptr。 问题来了，如果构造函数是虚的，那么它需要vptr来访问vtable，可这个时候vptr还没产生。 因此，构造函数不可以为虚函数。
+ * 我们之所以使用虚函数，是因为需要在信息不全的情况下进行多态运行。而构造函数是用来初始化实例的，实例的类型必须是明确的。
+ * 因此，构造函数没有必要被声明为虚函数。
+ * 尽管构造函数不可以为虚函数，但是有些场景下我们确实需要 “Virtual Copy Constructor”。 “虚复制构造函数”的说法并不严谨，其只是一个实现了对象复制的功能的类内函数。 举一个应用场景，比如剪切板功能。 复制内容作为基类，但派生类可能包含文字、图片、视频等等。 我们只有在程序运行的时候才知道我们需要复制的具体是什么类型的数据。
+ *
+ */
+ 
+#include <iostream>
+
+using namespace std;
+
+class Base {
+public:
+  Base() {}
+
+  virtual ~Base() {}
+
+  virtual void ChangeAttributes() = 0;
+
+  // "Virtual Constructor"
+  static Base *Create(int id);
+
+  // The "Virtual Copy Constructor"
+  virtual Base *Clone() = 0;
+};
+
+class Derived1 : public Base {
+public:
+  Derived1() { cout << "Derived1 created" << endl; }
+
+  Derived1(const Derived1 &rhs) {
+    cout << "Derived1 created by deep copy" << endl;
+  }
+
+  ~Derived1() { cout << "~Derived1 destroyed" << endl; }
+
+  void ChangeAttributes() { cout << "Derived1 Attributes Changed" << endl; }
+
+  Base *Clone() { return new Derived1(*this); }
+};
+
+class Derived2 : public Base {
+
+public:
+  Derived2() { cout << "Derived2 created" << endl; }
+
+  Derived2(const Derived2 &rhs) {
+    cout << "Derived2 created by deep copy" << endl;
+  }
+
+  ~Derived2() { cout << "~Derived2 destroyed" << endl; }
+
+  void ChangeAttributes() { cout << "Derived2 Attributes Changed" << endl; }
+
+  Base *Clone() { return new Derived2(*this); }
+};
+
+class Derived3 : public Base {
+public:
+  Derived3() { cout << "Derived3 created" << endl; }
+
+  Derived3(const Derived3 &rhs) {
+    cout << "Derived3 created by deep copy" << endl;
+  }
+
+  ~Derived3() { cout << "~Derived3 destroyed" << endl; }
+
+  void ChangeAttributes() { cout << "Derived3 Attributes Changed" << endl; }
+
+  Base *Clone() { return new Derived3(*this); }
+};
+
+Base *Base::Create(int id) {
+  if (id == 1) {
+    return new Derived1;
+  } else if (id == 2) {
+    return new Derived2;
+  } else {
+    return new Derived3;
+  }
+}
+
+class User {
+public:
+  User() : pBase(nullptr) {
+    int input;
+    cout << "Enter ID (1, 2 or 3): ";
+    cin >> input;
+
+    while ((input != 1) && (input != 2) && (input != 3)) {
+      cout << "Enter ID (1, 2 or 3 only): ";
+      cin >> input;
+    }
+
+    // Create objects via the "Virtual Constructor"
+    pBase = Base::Create(input);
+  }
+
+  ~User() {
+    if (pBase) {
+      delete pBase;
+      pBase = nullptr;
+    }
+  }
+
+  void Action() {
+    Base *pNewBase = pBase->Clone();
+    pNewBase->ChangeAttributes();
+    delete pNewBase;
+  }
+
+private:
+  Base *pBase;
+};
+
+int main() {
+  User *user = new User();
+
+  user->Action();
+
+  delete user;
+}
+
+```
+
+> 析构函数可以为虚函数吗？
+
+**析构函数可以声明为虚函数。如果我们需要删除一个指向派生类的基类指针时，应该把析构函数声明为虚函数。 事实上，只要一个类有可能会被其它类所继承， 就应该声明虚析构函数(哪怕该析构函数不执行任何操作)。**
+
+``` c++
+#include<iostream> 
+
+using namespace std; 
+
+class base { 
+    public: 
+        base()      
+        { cout<<"Constructing base \n"; } 
+        virtual ~base() 
+        { cout<<"Destructing base \n"; }      
+}; 
+
+class derived: public base { 
+    public: 
+        derived()      
+        { cout<<"Constructing derived \n"; } 
+        ~derived() 
+        { cout<<"Destructing derived \n"; } 
+}; 
+
+int main(void) 
+{ 
+    derived *d = new derived();   
+    base *b = d; 
+    delete b; 
+    return 0; 
+}
+```
+
+> 虚函数可以为私有函数吗？
+
+- 基类指针指向继承类对象，则调用继承类对象的函数；
+- int main()必须声明为Base类的友元，否则编译失败。 编译器报错： ptr无法访问私有函数。 当然，把基类声明为public， 继承类为private，该问题就不存在了。
+
+``` c++
+#include<iostream> 
+using namespace std; 
+
+// 以下两种都是可以的
+class Derived; 
+
+class Base { 
+    private: 
+        virtual void fun() { cout << "Base Fun"; } 
+        friend int main(); 
+}; 
+
+class Derived: public Base { 
+    public: 
+        void fun() { cout << "Derived Fun"; } 
+}; 
+
+class Derived; 
+
+class Base { 
+    public: 
+        virtual void fun() { cout << "Base Fun"; } 
+     //   friend int main(); 
+}; 
+
+class Derived: public Base { 
+    private: 
+        void fun() { cout << "Derived Fun"; } 
+};
+
+int main() 
+{ 
+    Base *ptr = new Derived; 
+    ptr->fun(); 
+    return 0; 
+}
+
+```
+
+> 虚函数可以被内联吗？
+
+通常类成员函数都会被编译器考虑是否进行内联。 但通过基类指针或者引用调用的虚函数必定不能被内联。 当然，实体对象调用虚函数或者静态调用时可以被内联，虚析构函数的静态调用也一定会被内联展开。
+
+- 虚函数可以是内联函数，内联是可以修饰虚函数的，但是当虚函数表现多态性的时候不能内联。
+- 内联是在编译器建议编译器内联，而虚函数的多态性在运行期，编译器无法知道运行期调用哪个代码，因此虚函数表现为多态性时（运行期）不可以内联。
+- inline virtual 唯一可以内联的时候是：编译器知道所调用的对象是哪个类（如 Base::who()），这只有在编译器具有实际对象而不是对象的指针或引用时才会发生。
+
+``` c++
+#include <iostream> 
+using namespace std; 
+class Base 
+{ 
+    public: 
+        virtual void who() 
+        { 
+            cout << "I am Base\n"; 
+        } 
+}; 
+class Derived: public Base 
+{ 
+    public: 
+        void who() 
+        {  
+            cout << "I am Derived\n"; 
+        } 
+}; 
+
+int main() 
+{ 
+    // note here virtual function who() is called through 
+    // object of the class (it will be resolved at compile 
+    // time) so it can be inlined. 
+    Base b; 
+    b.who(); 
+
+    // Here virtual function is called through pointer, 
+    // so it cannot be inlined 
+    Base *ptr = new Derived(); 
+    ptr->who(); 
+
+    return 0; 
+} 
+```
+
+## RTTI与dynamic_cast
+
+RTTI（Run-Time Type Identification)，通过运行时类型信息程序能够使用基类的指针或引用来检查这些指针或引用所指的对象的实际派生类型。
+
+在面向对象程序设计中，有时我们需要在运行时查询一个对象是否能作为某种多态类型使用。与Java的instanceof，以及C#的as、is运算符类似，C++提供了dynamic_cast函数用于动态转型。相比C风格的强制类型转换和C++ reinterpret_cast，dynamic_cast提供了类型安全检查，是一种基于能力查询(Capability Query)的转换，所以在多态类型间进行转换更提倡采用dynamic_cast。
+
+``` c++
+#include <iostream>
+#include <typeinfo>
+
+using namespace std;
+
+class B {
+  virtual void func() {}
+};
+
+class D : public B {};
+
+int main() {
+  B *b = new D; // 向上转型
+  B &obj = *b;
+  D *d = dynamic_cast<D *>(b); // 向下转型
+  if (d != nullptr) {
+    cout << "cast B* to D*\n";
+  } else {
+    cout << "cannot cast B* to D*\n";
+  }
+
+  try {
+    D &dobj = dynamic_cast<D &>(obj);
+    cout << "works!\n";
+  } catch (bad_cast bc) {
+    cout << bc.what() << endl;
+  }
+  return 0;
+}
+
+```
+
+-  在使用时需要注意：被转换对象obj的类型T1必须是多态类型，即T1必须公有继承自其它类，或者T1拥有虚函数（继承或自定义）。若T1为非多态类型，使用dynamic_cast会报编译错误。
+``` c++
+// 在使用时需要注意：被转换对象obj的类型T1必须是多态类型，即T1必须公有继承自其它类，或者T1拥有虚函数（继承或自定义）。若T1为非多态类型，使用dynamic_cast会报编译错误。
+
+// A为非多态类型 
+
+class A{
+
+};
+
+//B为多态类型
+
+class B{ 
+
+    public: virtual ~B(){}
+
+};
+
+//D为多态类型
+
+class D: public A{
+
+};
+
+//E为非多态类型
+
+class E : private A{
+
+};
+
+//F为多态类型
+
+class F : private B{
+
+}
 
 
-## 
+```
+
+## 纯虚函数和抽象类
+
+见上章
 
 
 # volatile那些事
@@ -1188,42 +1621,12 @@ pt->fun1();
 # struct那些事
 
 
-# struct和class那些事
+# struct与class那些事
 
 
 # union那些事
 
 
-
-# C实现C++多态那些事
-
+# c实现c++那多态那些事
 
 
-# explicit那些事
-
-
-
-# friend那些事
-
-
-
-# using那些事
-
-
-
-# ::那些事
-
-
-
-# enum那些事
-
-
-
-# decltype那些事
-
-
-
-# 引用与指针那些事
-
-
-# 宏那些事
