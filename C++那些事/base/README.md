@@ -1945,7 +1945,13 @@ gcc add.c add.o -o main
 ```
 
 # struct那些事
-
+|C|C++|
+|:-:|:-:|
+|不能将函数放在结构体声明|能将函数放在结构体声明|
+|在C结构体声明中不能使用C++访问修饰符。|public、protected、private 在C++中可以使用。|
+|在C中定义结构体变量，如果使用了下面定义必须加struct。|可以不加struct|
+|结构体不能继承（没有这一概念）。|可以继承|
+|若结构体的名字与函数名相同，可以正常运行且正常的调用！|若结构体的名字与函数名相同，使用结构体，只能使用带struct定义！|
 
 # struct与class那些事
 
@@ -1958,6 +1964,32 @@ gcc add.c add.o -o main
 - 默认的继承访问权限。struct 是 public 的，class 是 private 的。
 
 - struct 作为数据结构的实现体，它默认的数据访问控制是 public 的，而 class 作为对象的实现体，它默认的成员变量访问控制是 private 的。
+
+``` c++
+#include <iostream>
+#include <cstdio>
+
+using namespace std;
+
+struct Base {
+private:
+  int data1;
+public:
+  Base(int d) {
+    data1 = d;
+    cout << "Base()" << endl;
+  }
+};
+
+class Derived : public Base {
+
+};
+
+int main() {
+  struct Base b(1);
+}
+
+```
 
 # union那些事
 
