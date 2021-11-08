@@ -1992,19 +1992,384 @@ int main() {
 ```
 
 # union那些事
+联合（union）是一种节省空间的特殊的类，一个 union 可以有多个数据成员，但是在任意时刻只有一个数据成员可以有值。当某个成员被赋值后其他成员变为未定义状态。联合有如下特点：
 
+- 默认访问控制符为 public
+- 可以含有构造函数、析构函数
+- **不能含有引用类型的成员**
+- **不能继承自其他类，不能作为基类**
+- **不能含有虚函数**
+- 匿名 union 在定义所在作用域可直接访问 union 成员
+- 匿名 union 不能包含 protected 成员或 private 成员
+- 全局匿名联合必须是静态（static）的
 
 # c实现c++那多态那些事
+## C++实现案例
+> C++中的多态
 
+在C++中会维护一张虚函数表，根据赋值兼容规则，我们知道父类的指针或者引用是可以指向子类对象的。
+
+如果一个父类的指针或者引用调用父类的虚函数则该父类的指针会在自己的虚函数表中查找自己的函数地址，如果该父类对象的指针或者引用指向的是子类的对象，而且该子类已经重写了父类的虚函数，则该指针会调用子类的已经重写的虚函数。
+
+``` c++
+#include <iostream>
+
+using namespace std;
+class A {
+public:
+  virtual void f() //虚函数实现
+  {
+    cout << "Base A::f() " << endl;
+  }
+};
+
+class B : public A // 必须为共有继承，否则后面调用不到，class默认为私有继承！
+{
+public:
+  virtual void f() //虚函数实现,子类中virtual关键字可以没有
+  {
+    cout << "Derived B::f() " << endl;
+  }
+};
+
+int main() {
+  A a; //基类对象
+  B b; //派生类对象
+
+  A *pa = &a; //父类指针指向父类对象
+  pa->f();    //调用父类的函数
+
+  pa = &b; //父类指针指向子类对象，多态实现
+  pa->f(); //调用派生类同名函数
+  return 0;
+}
+
+```
+
+## C实现
+## 封装
+C语言中是没有class类这个概念的，但是有struct结构体，我们可以考虑使用struct来模拟；
+
+> 使用函数指针把属性与方法封装到结构体中。
+
+## 继承
+
+> 结构体嵌套
+
+## 多态
+
+> 类与子类方法的函数指针不同
+
+在C语言的结构体内部是没有成员函数的，如果实现这个父结构体和子结构体共有的函数呢？我们可以考虑使用函数指针来模拟。但是这样处理存在一个缺陷就是：父子各自的函数指针之间指向的不是类似C++中维护的虚函数表而是一块物理内存，如果模拟的函数过多的话就会不容易维护了。
+
+模拟多态，必须保持函数指针变量对齐(在内容上完全一致，而且变量对齐上也完全一致)。否则父类指针指向子类对象，运行崩溃！
+
+``` c++
+#include <stdio.h>
+
+typedef void (*pf)();
+
+typedef struct _A {
+  pf _f;
+}A;
+
+typedef struct _B {
+  A _b; // 继承
+}B;
+
+
+void FunA() {
+  printf("%s\n", "Base A::fun()");
+}
+
+void FunB() {
+  printf("%s\n", "Derived B::fun()");
+}
+
+int main() {
+  A a;
+  B b;
+
+  a._f = FunA;
+  b._b._f = FunB;
+
+  A *pa = &a;
+  pa->_f();
+  pa = (A*)&b;
+  pa->_f();
+  return 0;
+}
+
+```
 
 # explicit那些事
 
+- explicit 修饰构造函数时，可以防止隐式转换和复制初始化
+- explicit 修饰转换函数时，可以防止隐式转换，但按语境转换除外
 
 # friend那些事
 
+友元提供了一种 普通函数或者类成员函数 访问另一个类中的私有或保护成员 的机制。也就是说有两种形式的友元：
+
+1. 友元函数：普通函数对一个访问某个类中的私有或保护成员。
+2. 友元类：类A中的成员函数访问类B中的私有或保护成员
+
+- 优点：提高了程序的运行效率。
+- 缺点：破坏了类的封装性和数据的透明性。
+
+总结： - 能访问私有成员 - 破坏封装性 - 友元关系不可传递 - 友元关系的单向性 - 友元声明的形式及数量不受限制
+
+## 友元函数
+
+注意，友元函数只是一个普通函数，并不是该类的类成员函数，它可以在任何地方调用，友元函数中通过对象名来访问该类的私有或保护成员。
+
+``` c++
+#include <iostream>
+
+using namespace std;
+
+class A
+{
+public:
+    A(int _a):a(_a){};
+    friend int geta(A &ca);  ///< 友元函数
+private:
+    int a;
+};
+
+int geta(A &ca) 
+{
+    return ca.a;
+}
+
+int main()
+{
+    A a(3);    
+    cout<<geta(a)<<endl;
+
+    return 0;
+}
+```
+
+
+## 友元类
+
+``` c++
+#include <iostream>
+
+using namespace std;
+
+class A
+{
+public:
+    A(int _a):a(_a){};
+    friend class B;
+private:
+    int a;
+};
+
+class B
+{
+public:
+    int getb(A ca) {
+        return  ca.a; 
+    };
+};
+
+int main() 
+{
+    A a(3);
+    B b;
+    cout<<b.getb(a)<<endl;
+    return 0;
+  }
+```
+
+
+## 注意
+- 友元关系没有继承性 假如类B是类A的友元，类C继承于类A，那么友元类B是没办法直接访问类C的私有或保护成员。
+- 友元关系没有传递性 假如类B是类A的友元，类C是类B的友元，那么友元类C是没办法直接访问类A的私有或保护成员，也就是不存在“友元的友元”这种关系。
 
 # using那些事
+## 基本使用
 
+``` c++
+#include <iostream>
+#define isNs1 1
+//#define isGlobal 2
+using namespace std;
+void func() 
+{
+    cout<<"::func"<<endl;
+}
+
+namespace ns1 {
+    void func()
+    {
+        cout<<"ns1::func"<<endl; 
+    }
+}
+
+namespace ns2 {
+#ifdef isNs1 
+    using ns1::func;    /// ns1中的函数
+#elif isGlobal
+    using ::func; /// 全局中的函数
+#else
+    void func() 
+    {
+        cout<<"other::func"<<endl; 
+    }
+#endif
+}
+
+int main() 
+{
+    /**
+     * 这就是为什么在c++中使用了cmath而不是math.h头文件
+     */
+    ns2::func(); // 会根据当前环境定义宏的不同来调用不同命名空间下的func()函数
+    return 0;
+}
+```
+
+## 改变访问性
+
+``` c++
+#include <iostream>
+
+using namespace std;
+
+class Base1 {
+public:
+  Base1() : value(10) {}
+  virtual ~Base1() {}
+  void test1() { cout << "Base test1..." << endl; }
+
+protected: // 保护
+  int value;
+};
+// 默认为私有继承
+class Derived1 : Base1 {
+public:
+  void test2() { cout << "value is " << value << endl; }
+};
+
+class Base {
+public:
+  Base() : value(20) {}
+  virtual ~Base() {}
+  void test1() { cout << "Base test1..." << endl; }
+
+private: //私有
+  int value;
+};
+
+/**
+ * 子类对父类成员的访问权限跟如何继承没有任何关系，
+ * “子类可以访问父类的public和protected成员，不可以访问父类的private成员”——这句话对任何一种继承都是成立的。
+ *
+ */
+class Derived : Base {
+public:
+  using Base::value;
+  void test2() { cout << "value is " << value << endl; }
+};
+
+int main() {
+  Derived1 d1;
+  d1.test2();
+
+  Derived d;
+  d.test2();
+  return 0;
+}
+
+```
+
+
+``` c++
+
+class Base{
+public:
+ std::size_t size() const { return n;  }
+protected:
+ std::size_t n;
+};
+class Derived : private Base {
+public:
+ using Base::size;
+protected:
+ using Base::n;
+};
+```
+
+类Derived私有继承了Base，对于它来说成员变量n和成员函数size都是私有的，如果使用了using语句，可以改变他们的可访问性，如上述例子中，size可以按public的权限访问，n可以按protected的权限访问。
+
+## 函数重载
+
+**在继承过程中，派生类可以覆盖重载函数的0个或多个实例，一旦定义了一个重载版本，那么其他的重载版本都会变为不可见。**
+
+如果对于基类的重载函数，我们需要在派生类中修改一个，又要让其他的保持可见，必须要重载所有版本，这样十分的繁琐。
+
+``` c++
+#include <iostream>
+
+using namespace std;
+
+
+class Base {
+public:
+  Base(int i = 0) : data(i) {
+
+  }
+  void f() {
+    cout << data << endl;
+  }
+
+  void f(int i) {
+    cout << data << endl;
+  }
+
+  void f(int i) const {
+    cout << data << endl;
+  }
+protected:
+  int data;
+};
+
+class Derived : public Base {
+public:
+  using Base::f;
+  void f(int i) {
+    data = i;
+    cout << "Derived=" << data << endl;
+  }
+
+};
+
+int main() {
+  Base b(20);
+  b.f();
+
+  Derived d;
+  d.f(10);
+  d.f();
+}
+
+```
+
+**如上代码中，在派生类中使用using声明语句指定一个名字而不指定形参列表，所以一条基类成员函数的using声明语句就可以把该函数的所有重载实例添加到派生类的作用域中。此时，派生类只需要定义其特有的函数就行了，而无需为继承而来的其他函数重新定义。**
+
+## 取代typedef
+C中常用typedef A B这样的语法，将B定义为A类型，也就是给A类型一个别名B
+
+对应typedef A B，使用using B=A可以进行同样的操作。
+
+``` c++
+typedef vector<int> V1; 
+using V2 = vector<int>;
+```
 
 # ::那些事 
 - 全局作用域符（::name）：用于类型名称（类、类成员、成员函数、变量等）前，表示作用域为全局命名空间
