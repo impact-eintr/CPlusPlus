@@ -2377,9 +2377,252 @@ using V2 = vector<int>;
 - 命名空间作用域符（namespace::name）:用于表示指定类型的作用域范围是具体某个命名空间的
 
 # enum那些事 
+## 传统行为
+- 作用域不受限,会容易引起命名冲突。例如下面无法编译通过的：
+
+``` c++
+#include <iostream>
+using namespace std;
+
+enum Color {RED,BLUE};
+enum Feeling {EXCITED,BLUE};
+
+int main() 
+{
+    return 0;
+}
+```
+
+- 会隐式转换为int
+- 用来表征枚举变量的实际类型不能明确指定，从而无法支持枚举类型的前向声明。
+
+## 经典做法
+解决作用域不受限带来的命名冲突问题的一个简单方法是，给枚举变量命名时加前缀，如上面例子改成 COLOR_BLUE 以及 FEELING_BLUE。
+
+一般说来，为了一致性我们会把所有常量统一加上前缀。但是这样定义枚举变量的代码就显得累赘。C 程序中可能不得不这样做。不过 C++ 程序员恐怕都不喜欢这种方法。替代方案是命名空间:
+
+``` c++
+namespace Color 
+{
+    enum Type
+    {
+        RED=15,
+        YELLOW,
+        BLUE
+    };
+};
+```
+
+这样之后就可以用 Color::Type c = Color::RED; 来定义新的枚举变量了。如果 using namespace Color 后，前缀还可以省去，使得代码简化。不过，因为命名空间是可以随后被扩充内容的，所以它提供的作用域封闭性不高。在大项目中，还是有可能不同人给不同的东西起同样的枚举类型名。
+
+更“有效”的办法是用一个类或结构体来限定其作用域，例如：定义新变量的方法和上面命名空间的相同。不过这样就不用担心类在别处被修改内容。这里用结构体而非类，一是因为本身希望这些常量可以公开访问，二是因为它只包含数据没有成员函数。
+
+``` c++
+struct Color1
+{
+    enum Type
+    {
+        RED=102,
+        YELLOW,
+        BLUE
+    };
+};
+
+Color1.Type
+```
+
+## C++11 的枚举类
+上面的做法解决了第一个问题，但对于后两个仍无能为力。庆幸的是，C++11 标准中引入了“枚举类”(enum class)，可以较好地解决上述问题。
+
+- 新的enum的作用域不再是全局的
+- 不能隐式转换成其他类型
+
+``` c++
+enum class Color2 {
+  RED = 2,
+  YELLOW,
+  BLUE
+};
+
+Color c2 = Color2::RED;
+
+cout << static_cast<int>(c2) << endl;
+```
+
+- 可以指定用特定的类型来存储enum
+
+``` c++
+enum class Color3:char;  // 前向声明
+
+// 定义
+enum class Color3:char 
+{
+    RED='r',
+    BLUE
+};
+
+char c3 = static_cast<char>(Color3::RED);
+```
+
+## 类中的枚举类型C
+有时我们希望某些常量只在类中有效。 由于#define 定义的宏常量是全局的，不能达到目的，于是想到实用const 修饰数据成员来实现。而const 数据成员的确是存在的，但其含义却不是我们所期望的。
+
+const 数据成员只在某个对象生存期内是常量，而对于整个类而言却是可变的，因为类可以创建多个对象，不同的对象其 const 数据成员的值可以不同。
+
+不能在类声明中初始化 const 数据成员。以下用法是错误的，因为类的对象未被创建时，编译器不知道 SIZE 的值是什么。(c++11标准前)
+
+``` c++
+class A 
+{
+  const int SIZE = 100;   // 错误，企图在类声明中初始化 const 数据成员 
+  int array[SIZE];  // 错误，未知的 SIZE 
+}; 
+```
+
+也许我们可以这样
+
+``` c++
+#include <iostream>
+
+using namespace std;
+
+class A {
+public:
+  A(int size); // 构造函数
+  void func() { cout << SIZE << endl; }
+
+private:
+  static const int SIZE;
+};
+
+const int A::SIZE = 100;
+
+A::A(int size) // 构造函数的定义
+{}
+
+int main() {
+  A a(100); // 对象 a 的 SIZE 值为 100
+  A b(200); // 对象 b 的 SIZE 值为 200
+  a.func();
+}
+
+```
 
 
+``` c++
+class Person{
+public:
+    typedef enum {
+        BOY = 0,
+        GIRL
+    }SexType;
+};
+//访问的时候通过，Person::BOY或者Person::GIRL来进行访问。
+```
+
+枚举常量不会占用对象的存储空间，它们在编译时被全部求值。
+
+枚举常量的缺点是：它的隐含数据类型是整数，其最大值有限，且不能表示浮点。
 # decltype那些事
+
+## 1.基本使用¶
+decltype的语法是:
+
+
+decltype (expression)
+这里的括号是必不可少的,decltype的作用是“查询表达式的类型”，因此，上面语句的效果是，返回 expression 表达式的类型。注意，decltype 仅仅“查询”表达式的类型，并不会对表达式进行“求值”。
+
+### 1.1 推导出表达式类型¶
+
+``` c++
+int i = 4;
+decltype(i) a; //推导结果为int。a的类型为int。
+
+```
+
+### 1.2 与using/typedef合用，用于定义类型。¶
+
+``` c++
+using size_t = decltype(sizeof(0));//sizeof(a)的返回值为size_t类型
+using ptrdiff_t = decltype((int*)0 - (int*)0);
+using nullptr_t = decltype(nullptr);
+vector<int >vec;
+typedef decltype(vec.begin()) vectype;
+for (vectype i = vec.begin; i != vec.end(); i++)
+{
+//...
+}
+```
+
+这样和auto一样，也提高了代码的可读性。
+
+### 1.3 重用匿名类型¶
+在C++中，我们有时候会遇上一些匿名类型，如:
+
+``` c++
+struct 
+{
+    int d ;
+    doubel b;
+}anon_s;
+
+```
+
+而借助decltype，我们可以重新使用这个匿名的结构体：
+
+
+decltype(anon_s) as ;//定义了一个上面匿名的结构体
+### 1.4 泛型编程中结合auto，用于追踪函数的返回值类型¶
+这也是decltype最大的用途了。
+
+``` c++
+
+#include <cstddef>
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+template <typename T> auto multiply(T x, T y) -> decltype(x * y) {
+  return x * y;
+}
+
+int main() {
+  int nums[] = {1, 2, 3, 4};
+  vector<int> vec(nums, nums + 4);
+  vector<int>::iterator it;
+
+  for (it = vec.begin(); it != vec.end(); it++) {
+    cout << *it << " ";
+  }
+  cout << endl;
+
+  using nullptr_t = decltype(nullptr);
+  nullptr_t nu;
+  int *p = NULL;
+  if (p == nu) {
+    cout << "NULL" << endl;
+  }
+
+  typedef decltype(vec.begin()) vectype;
+
+  for (vectype i = vec.begin(); i != vec.end(); i++) {
+    cout << *i << " ";
+  }
+  cout << endl;
+
+  // 匿名结构体
+  struct {
+    int d;
+    double b;
+  } anon_s;
+
+  decltype(anon_s) as; // 定义了一个上面匿名的结构体
+  cout << multiply(11, 2) << endl;
+  return 0;
+}
+```
+
 
 
 # 引用和指针那些事 
