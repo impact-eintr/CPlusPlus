@@ -7,8 +7,8 @@
 - C++ STL [更新中]
 - C++ 11/14 [TODO]
 - C++ 内存管理 [TODO]
-- C++ 设计模式
-- APUE
+- C++ 设计模式[TODO]
+- APUE[完结]
 - Boost库 [TODO]
 - muduo网络库 [TODO]
 - leveldb [TODO]
