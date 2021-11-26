@@ -1,11 +1,14 @@
 #include <cstddef>
 #include <initializer_list>
 #include <iostream>
+#include <map>
 #include <ostream>
+#include <utility>
 #include <vector>
 
 using namespace std;
 
+#include <tuple>
 namespace VariadicTemplates {
 // 递归打印
 void printX() {} // 参数为0的时候
@@ -44,10 +47,46 @@ public:
   _tuple(Head v, Tail... vtail) : m_head(v), inherited(vtail...) {}
 
   auto head() -> decltype(m_head) { return m_head; } //使用decltype进行类型推导
-  //	Head head(){ return m_head; }
+  // Head head(){ return m_head; }
   inherited &tail() { return *this; } // return后转换为inherited
 };
-} // namespace VariadicTemplates
+
+template <int IDX, int MAX, typename... Args> struct PRINT_TUPLE {
+
+  static void print(ostream &os, const tuple<Args...> &t) {
+    os << get<IDX>(t) << (IDX + 1 == MAX ? "" : ",");
+    PRINT_TUPLE<IDX + 1, MAX, Args...>::print(os, t); //递归调用
+  }
+};
+
+// 偏特化
+template <int MAX, typename... Args> struct PRINT_TUPLE<MAX, MAX, Args...> {
+  static void print(ostream &os, const tuple<Args...> &t) {}
+};
+
+template <typename... Args>
+ostream &operator<<(ostream &os, const tuple<Args...> &t) {
+  os << "[";
+  PRINT_TUPLE<0, sizeof...(Args), Args...>::print(os, t);
+  return os << "]";
+}
+
+template <typename... Value> class tup;
+template <> class tup<> {};
+template <typename Head, typename... Tail> class tup<Head, Tail...> {
+  typedef tup<Tail...> composited;
+
+protected:
+  composited m_tail;
+  Head m_head;
+
+public:
+  tup() {}
+  tup(Head v, Tail... vtail) : m_tail(vtail...), m_head(v) {}
+  Head head() { return m_head; }
+  composited &tail() { return m_tail; }
+};
+}; // namespace VariadicTemplates
 
 namespace Initializer_list {
 void print(initializer_list<int> vals) {
@@ -121,7 +160,70 @@ public:
 
 template <typename T> using Vec = vector<T, allocator<T>>;
 
+namespace Decltype {
+
+template <typename T1, typename T2> auto add(T1 x, T2 y) -> decltype(x + y);
+
+auto test() -> void {
+  vector<int> v;
+  decltype(v)::value_type elem;
+  cout << elem << endl;
+}
+
+template <typename T> void test_decltype(T obj) {
+  typedef typename decltype(obj)::value_type iType;
+}
+}; // namespace Decltype
+
+namespace Lambdas {
+void Lambdas_test() {
+  int id = 0;
+  auto f = [id]() { cout << "id: " << id << endl; };
+  id = 42;
+  f();
+  f();
+  f();
+  cout << id << endl;
+}
+}; // namespace Lambdas
+
+namespace RValue {
+  template <typename M>
+  void test_moveable(M c, long &value) {
+  char buf[10];
+
+  typedef typename iterator_traits<typename M::iterator>::value_type Vtype;
+  clock_t timeStart = clock();
+  for (long i = 0; i < value; ++i) {
+    snprintf(buf, 10, "%d", rand());
+    auto ite = c.end();
+    c.insert(ite, Vtype(buf));
+  }
+  cout << "mill-seconds: " << (clock() - timeStart) << endl;
+  cout << "size()=" << c.size() << endl;
+  }
+
+  void process(int& i) {
+    cout << "Process(int&):" << i << endl;
+  }
+
+  void process(int&& i) {
+    cout << "Process(int&&):" << i << endl;
+  }
+
+  void forward(int&& i) {
+    cout << "forward(int&&):" << i << endl;
+    process(i);
+  }
+} // namespace RValue
+
 int main(int argc, char *argv[]) {
-  temptempparam::XCls<Explicit::P, Vec> c1;
+  int a = 0;
+  RValue::process(a);
+  RValue::process(1);
+  RValue::process(move(a));
+
+  RValue::forward(2);// Rvalue通过forward()传递给另一个函数却变成了Lvalue 这个过程中变成了named object
+  RValue::forward(move(a));
   return 0;
 }

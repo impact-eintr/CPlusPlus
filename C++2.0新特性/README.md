@@ -1,5 +1,7 @@
 # C++2.0新特性
 
+# 语法
+
 ## Variadic Templates
 
 数量不定的模板参数 **非常适合用来做递归**
@@ -378,35 +380,345 @@ int main(int argc, char *argv[]) {
 
 ```
 
+## decltype
+
+可以认为是 `typeof()`
+
+``` c++
+namespace Decltype {
+template <typename T1, typename T2> auto add(T1 x, T2 y) -> decltype(x + y);
+void test() {
+  vector<int> v;
+  decltype(v)::value_type elem;
+  cout << elem << endl;
+}
+}; // namespace Decltype
+
+```
+
+> 配合lambdas 使用
+
+``` c++
+auto cmp = [](const Person& p1, const Person& p2) {
+    return p1.lastname() < p2.lastname() ||
+    (p1.lastname() == p2.lastname() && p1.lastname() < p2.firstname())
+}
+
+std::set<>Person, decltype(cmp) > coll(cmp);
+```
+
+## Lambdas
+inline functionality
+
+匿名函数
+
+### 概览
+
+``` c++
+[] {
+    std::cout << "hello" << std::endl;
+}
+
+[] {
+    std::cout << "hello lambda" << std::endl;
+}()
+
+autp l = [] {
+    std::cout << "hello lambda" << std::endl;
+}
+
+l();
+```
+
+
+### 形式
+
+``` c++
+[...获取外部变量](...函数参数)mutable throwsSpec -> retType {... 函数体}
+```
+
+``` c++
+int id = 0;
+auto f = [id] ()  mutable {
+    cout << "id" << id << endl;
+    ++id;
+}
+```
+
+``` c++
+namespace Lambdas {
+void Lambdas_test() {
+  int id = 0;
+  auto f = [id]() mutable {
+    cout << "id: " << id << endl;
+    ++id;
+  };
+  id = 42;
+  f();
+  f();
+  f();
+  cout << id << endl;
+}
+}; // namespace Lambdas
+
+int main(int argc, char *argv[]) {
+  Lambdas::Lambdas_test();
+  return 0;
+}
+
+```
+
+``` c++
+namespace Lambdas {
+void Lambdas_test() {
+  int id = 0;
+  auto f = [&id](){
+    cout << "id: " << id << endl;
+    ++id;
+  };
+  id = 42;
+  f();
+  f();
+  f();
+  cout << id << endl;
+}
+}; // namespace Lambdas
+
+int main(int argc, char *argv[]) {
+  Lambdas::Lambdas_test();
+  return 0;
+}
+
+```
+
+> 下面这个是错误的
+
+``` c++
+namespace Lambdas {
+void Lambdas_test() {
+  int id = 0;
+  auto f = [id](){
+    cout << "id: " << id << endl;
+    ++id;
+  };
+  id = 42;
+  f();
+  f();
+  f();
+  cout << id << endl;
+}
+}; // namespace Lambdas
+
+int main(int argc, char *argv[]) {
+  Lambdas::Lambdas_test();
+  return 0;
+}
+
+```
+
+## 再看Variadic Templates
+
+``` c++
+void func() {}
+
+template <typename T, typename... Types>
+void func(const T& firstArgs, const Type&... args) {
+    cout << firstArgs << endl;
+    func(args...);
+}
+
+```
+
+``` c++
+// Max/Min
+int maximum(int n) { return n; }
+
+template <typename... Args> int maximum(int n, Args... args) {
+  return max(n, maximum(args...));
+}
+
+```
+
+``` c++
+template <int IDX, int MAX, typename... Args> struct PRINT_TUPLE {
+
+  static void print(ostream &os, const tuple<Args...> &t) {
+    os << get<IDX>(t) << (IDX + 1 == MAX ? "" : ",");
+    PRINT_TUPLE<IDX + 1, MAX, Args...>::print(os, t); //递归调用
+  }
+};
+
+// 偏特化 当当前元素和最后一个元素类型相同的时候使用下面的模板
+template <int MAX, typename... Args> struct PRINT_TUPLE<MAX, MAX, Args...> {
+  static void print(ostream &os, const tuple<Args...> &t) {}
+};
+
+template <typename... Args>
+ostream &operator<<(ostream &os, const tuple<Args...> &t) {
+  os << "[";
+  PRINT_TUPLE<0, sizeof...(Args), Args...>::print(os, t);
+  return os << "]";
+}
+
+```
+
+> 递归继承实现 tuple
+
+``` c++
+// 模拟tuple内部实现
+template <typename... Values> class _tuple; // 这里表示_tuple是一个模板类
+
+template <> class _tuple<> {
+public:
+  _tuple() {}
+};
+
+template <typename Head, typename... Tail> //不希望产生实参个数为0的变长参数模板
+class _tuple<Head, Tail...> : private _tuple<Tail...> //继承自参数少一个的tuple
+{
+  typedef _tuple<Tail...> inherited;
+
+protected:
+  Head m_head;
+
+public:
+  _tuple() = default;
+  _tuple(Head v, Tail... vtail) : m_head(v), inherited(vtail...) {}
+
+  auto head() -> decltype(m_head) { return m_head; } //使用decltype进行类型推导
+  // Head head(){ return m_head; }
+  inherited &tail() { return *this; } // return后将this强制转换为inherited(_tuple<Tail...>)
+};
+```
+
+> 递归组合
+
+``` c++
+
+template <typename... Value> class tup;
+template <> class tup<> {};
+template <typename Head, typename... Tail> class tup<Head, Tail...> {
+  typedef tup<Tail...> composited;
+
+protected:
+  composited m_tail;
+  Head m_head;
+
+public:
+  tup() {}
+  tup(Head v, Tail... vtail) : m_tail(vtail...), m_head(v) {}
+  Head head() { return m_head; }
+  composited &tail() { return m_tail; }
+};
+
+int main(int argc, char *argv[]) {
+  VariadicTemplates::tup<int, float, string> t {1, 1.2, "hello"};
+  cout << t.tail().tail().head() << endl;
+  cout << t.tail().head() << endl;
+  cout << t.head() << endl;
+  return 0;
+}
+
+```
+
+# 标准库
+
+## Rvalue references(右值引用)
+**一种新的引用类型，避免不必要的copy**
+
+- Lvalue 可以出现在 operator= 左侧者
+- Rvalue 只能出现于 operator= 右侧者
+
+``` c++
+// copy
+insert(..., &x)
+
+// move
+insert(..., &&x)
+```
+
+``` c++
+
+namespace RValue {
+  template <typename M>
+  void test_moveable(M c, long &value) {
+  char buf[10];
+
+  typedef typename iterator_traits<typename M::iterator>::value_type Vtype;
+  clock_t timeStart = clock();
+  for (long i = 0; i < value; ++i) {
+    snprintf(buf, 10, "%d", rand());
+    auto ite = c.end();
+    c.insert(ite, Vtype(buf));
+  }
+  cout << "mill-seconds: " << (clock() - timeStart) << endl;
+  cout << "size()=" << c.size() << endl;
+}
+} // namespace RValue
+
+int main(int argc, char *argv[]) {
+  long i = 2000000;
+  RValue::test_moveable(vector<string>(), i);
+  return 0;
+}
+
+```
+
+## Perfect Forwarding
+
+``` c++
+class MyString {
+private:
+    char * _data;
+    
+public:
+    // copy
+    MyString& operator=(const MyString& str) {
+        // TODO
+        return *this;*
+    }
+    // move
+    MyString& operator=(MyString&& str) noexcept {
+        // TODO
+        return *this*
+    }
+}
+```
+
+
+### Unperfect Forwarding
+
+``` c++
+  void process(int& i) {
+    cout << "Process(int&):" << i << endl;
+  }
+
+  void process(int&& i) {
+    cout << "Process(int&&):" << i << endl;
+  }
+
+  void forward(int&& i) {
+    cout << "forward(int&&):" << i << endl;
+    process(i);
+  }
+
+int main(int argc, char *argv[]) {
+  int a = 0;
+  RValue::process(a);
+  RValue::process(1);
+  RValue::process(move(a));
+
+  RValue::forward(2);// Rvalue通过forward()传递给另一个函数却变成了Lvalue 这个过程中变成了named object
+  RValue::forward(move(a));
+  return 0;
+}
+
+```
+
 ## 
 
 
 
-
-## 
-
-
-
-## 
-
-
-
-## 
-
-
-
-## 
-
-
-
-## 
-
-
-
-## 
-
-
-
 ## 
 
 
@@ -433,21 +745,3 @@ int main(int argc, char *argv[]) {
 ## 
 
 
-
-## 
-
-
-
-## 
-
-
-## 
-
-
-## 
-
-
-## 
-
-
-## 
