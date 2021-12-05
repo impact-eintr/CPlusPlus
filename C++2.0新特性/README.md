@@ -715,6 +715,10 @@ int main(int argc, char *argv[]) {
 
 ```
 
+### 写一个 move aware class
+
+
+
 ## 
 
 

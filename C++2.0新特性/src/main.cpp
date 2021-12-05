@@ -188,8 +188,7 @@ void Lambdas_test() {
 }; // namespace Lambdas
 
 namespace RValue {
-  template <typename M>
-  void test_moveable(M c, long &value) {
+template <typename M> void test_moveable(M c, long &value) {
   char buf[10];
 
   typedef typename iterator_traits<typename M::iterator>::value_type Vtype;
@@ -201,21 +200,72 @@ namespace RValue {
   }
   cout << "mill-seconds: " << (clock() - timeStart) << endl;
   cout << "size()=" << c.size() << endl;
-  }
+}
 
-  void process(int& i) {
-    cout << "Process(int&):" << i << endl;
-  }
+void process(int &i) { cout << "Process(int&):" << i << endl; }
 
-  void process(int&& i) {
-    cout << "Process(int&&):" << i << endl;
-  }
+void process(int &&i) { cout << "Process(int&&):" << i << endl; }
 
-  void forward(int&& i) {
-    cout << "forward(int&&):" << i << endl;
-    process(i);
-  }
+void forward(int &&i) {
+  cout << "forward(int&&):" << i << endl;
+  process(i);
+}
 } // namespace RValue
+
+#include <cstring>
+namespace MoveClass {
+class MyString {
+public:
+  static size_t DCtor; // 累计default-ctor调用次数
+  static size_t Ctor;  // 累计ctor调用次数
+  static size_t CCtor; // 累计copy-ctor调用次数
+  static size_t CAsgn; // 累计copy-asgn调用次数
+  static size_t MCtor; // 累计move-ctor调用次数
+  static size_t MAsgn; // 累计move-asgn调用次数
+  static size_t Dtor;  // 累计dtor调用次数
+private:
+  char* _data;
+  size_t _len;
+  void _init_data(const char *s) {
+    _data = new char[_len+1];
+    memcpy(_data, s, _len);
+    _data[_len] = '\0';
+  }
+public:
+  // DCtor
+  MyString() :_data(nullptr), _len(0) {++DCtor;}
+  // Ctor
+  MyString(const char *p) : _len(strlen(p)) {
+    ++Ctor;
+    _init_data(p);
+  }
+  // CCtor
+  MyString(const MyString& str) :_len(str._len) {
+    ++CCtor;
+    _init_data(str._data);
+  }
+
+  // MCtor
+  MyString(MyString&& str) noexcept : _data(str._data), _len(str._len) {
+    ++MCtor;
+    str._len = 0;
+    str._data = nullptr;
+  }
+
+  // CAsgn
+  MyString& operator=(const MyString& str) {
+    ++CAsgn;
+    // 自我赋值检查
+    if (this != &str) {
+
+    } else {
+
+    }
+    return *this;
+  }
+
+};
+} // namespace MoveClass
 
 int main(int argc, char *argv[]) {
   int a = 0;
@@ -223,7 +273,8 @@ int main(int argc, char *argv[]) {
   RValue::process(1);
   RValue::process(move(a));
 
-  RValue::forward(2);// Rvalue通过forward()传递给另一个函数却变成了Lvalue 这个过程中变成了named object
+  RValue::forward(2); // Rvalue通过forward()传递给另一个函数却变成了Lvalue
+                      // 这个过程中变成了named object
   RValue::forward(move(a));
   return 0;
 }
