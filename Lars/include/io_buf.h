@@ -15,7 +15,7 @@ public:
   void adjust();
 
   // 将其他 io_buf 对象中的数据拷贝给自己
-  void copy(const io_buf& other); // 这里小心引用的使用
+  void copy(const io_buf* other); // 这里小心引用的使用
 
   // 处理长度为len的数据 移动head并修正length
   void pop(int len);
