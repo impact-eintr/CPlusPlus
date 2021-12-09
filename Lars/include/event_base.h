@@ -5,7 +5,7 @@
 
 class event_loop;
 
-typedef void io_callback(event_loop &loop, int fd, void *args);
+typedef void io_callback(event_loop *loop, int fd, void *args);
 
 // 封装IO触发实现
 struct io_event {

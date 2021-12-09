@@ -49,19 +49,19 @@ public:
   void add_task(task_func func, void *args);
 
   // 执行全部的ready_task中的任务
-  void execute_reasdy_tasks();
+  void execute_ready_tasks();
 
 private:
   // epoll fd
   int _epfd;
 
-  // 当前event_loop监控的fd和对应事件的关系
+  // 是一个hash_map对象，主要是方便我们管理fd<—>io_event的对应关系，方便我们来查找和处理。
   io_event_map _io_evs;
 
-  // 当前event_loop总共有哪些fd在监听
+  // 记录目前一共有多少个fd正在本我们的event_loop机制所监控
   listen_fd_set listen_fds;
 
-  // 一次性最大处理的事件
+  // 已经通过epoll_wait返回的被激活需要上层处理的fd集合
   struct epoll_event _fired_eves[MAXEVENTS];
 
   // 需要被执行的task集合
