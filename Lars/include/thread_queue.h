@@ -34,7 +34,7 @@ public:
     unsigned long long idle_num = 1;
     pthread_mutex_lock(&_queue_mutex);
 
-    // 将任务添加到队列
+    // 将任务添加到队列 可能是新建连接的任务(包含连接fd) 也可能只是一个普通任务
     _queue.push(task);
 
     // 向_evfd写 来触发_loop的EPOLLIN事件

@@ -1,5 +1,7 @@
 #include "tcp_conn.h"
 #include "event_loop.h"
+#include "message.h"
+#include "tcp_server.h"
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -25,6 +27,8 @@ static void tcp_conn_write_callback(event_loop* loop, int fd, void* args) {
 }
 
 // 初始化tcp_conn 将当前connfd 注册在loop中
+// _loop就是当前线程生成时 构建的那个event_loop
+// 每有一个新的连接到来 就会生成一个thread
 tcp_conn::tcp_conn(int connfd, event_loop *loop) {
   this->_connfd = connfd;
   this->_loop = loop;
@@ -37,27 +41,100 @@ tcp_conn::tcp_conn(int connfd, event_loop *loop) {
   setsockopt(_connfd, IPPROTO_TCP, TCP_NODELAY, &op, sizeof(op));
 
   // 检测用户是否注册了连接建立 hook 有则调用
-
+  if (tcp_server::conn_start_cb) {
+    tcp_server::conn_start_cb(this, tcp_server::conn_start_cb_args);
+  }
   // 将该连接的读事件让event_loop监控 一旦有io输入 loop就会有通知
   _loop->add_io_event(_connfd, tcp_conn_read_callback, EPOLLIN, this);
 
   // 将该连接集成到对应的tcp_server中
-
+  tcp_server::increase_conn(_connfd, this);
 }
 
 // 处理读业务
 void tcp_conn::do_read() {
+  // 从套接字读取数据
+  int ret = _ibuf.read_data(_connfd);
+  if (ret == -1) {
+    fprintf(stderr, "read data from socket\n");
+    this->clean_conn();
+    return;
+  } else if (ret == 0) {
+    // 对端正常关闭
+    printf("connection closed by peer\n");
+    clean_conn();
+    return;
+  }
 
+  // 处理读到的数据
+  msg_head head;
+
+  while (_ibuf.length() >= MESSAGE_HEAD_LEN) {
+    // 读取msg_head头部 固定长度MESSAGE_HEAD_LEN
+    memcpy(&head, _ibuf.data(), MESSAGE_HEAD_LEN);
+    if (head.msglen > MESSAGE_MAX_LEN || head.msglen < 0) {
+      fprintf(stderr, "data format error, need close, msglen=%d\n", head.msglen);
+      this->clean_conn();
+      break;
+    }
+    // 检测_ibuf中的数据包是否是完整的
+    if (_ibuf.length() < MESSAGE_HEAD_LEN + head.msglen) {
+      break;
+    }
+    _ibuf.pop(MESSAGE_HEAD_LEN);
+
+#ifdef debug
+    printf("read data: %s\n", ibuf.data());
+#endif
+    // 消息包按照 msgid 进行路由处理 分发给不同的处理逻辑
+    tcp_server::router.call_msg_router(head.msgid, head.msglen, _ibuf.data(), this);
+    // 消息处理完毕
+    _ibuf.pop(head.msglen);
+  }
+  _ibuf.adjust();
+  return;
 }
 
 // 处理写业务
 void tcp_conn::do_write() {
-
+  while(_obuf.length()) {
+    int ret = _obuf.write2fd(_connfd);
+    if (ret == -1) {
+      fprintf(stderr, "write2fd error, close conn\n");
+      this->clean_conn();
+      return;
+    }
+  }
+#ifdef debug
+  printf("server do_write() over!");
+#endif
+  if (_obuf.length() == 0) {
+    // 数据全部写完 将_connfd的写事件取消掉
+    _loop->del_io_event(_connfd, EPOLLIN);
+  }
+  return;
 }
 
 // 销毁tcp_conn
 void tcp_conn::clean_conn() {
+  // 如果注册了销毁Hook函数 则调用
+  if (tcp_server::conn_close_cb) {
+    tcp_server::conn_close_cb(this, tcp_server::conn_close_cb_args);
+  }
 
+  // 连接清理工作
+  tcp_server::decrease_conn(_connfd);
+
+  _loop->del_io_event(_connfd);
+
+  // buf清空
+  _ibuf.clear();
+  _obuf.clear();
+
+  // 关闭原始套接字
+  int fd = _connfd;
+  _connfd = -1;
+  close(fd);
 }
 
 // 发送消息的方法

@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 // 这个函数是用来处理消息队列中消息的
-// 只要有人调用 thread_queue::send() 方法就会触发
+// 只要有人调用 thread_queue::send() 方法就会触发 EPOLLIN
 // thread_pool() --> thread_cnt个线程 --> 每个线程执行thread_main(queue) -
 // -> 开启event_loop机制 监控queue中发生的io事件 也就是queue->_evfd的事件
 void deal_task_message(event_loop *loop, int fd, void *args) {
@@ -52,7 +52,8 @@ void *thread_main(void *args) {
     fprintf(stderr, "new event_loop error\n");
     exit(1);
   }
-  // 注册一个触发消息任务的callback函数
+  // 注册一个触发消息任务的callback函数 将传入的queue用新构建的event_loop监控
+  // 实现每一个线程拥有一个消息队列
   queue->set_loop(loop);
   queue->set_callback(deal_task_message, queue);
 

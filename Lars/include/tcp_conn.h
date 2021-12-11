@@ -28,9 +28,9 @@ private:
   // 该连接归属的event_poll
   event_loop *_loop;
   // 输入buf
-  input_buf ibuf;
+  input_buf _ibuf;
   // 输出buf
-  output_buf obuf;
+  output_buf _obuf;
 };
 
 #endif // TCP_CONN_H_
