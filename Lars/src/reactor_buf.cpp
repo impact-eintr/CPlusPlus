@@ -89,8 +89,7 @@ int input_buf::read_data(int fd) {
     }
   } while (
       alread_read == -1 &&
-      errno ==
-          EINTR); // systemCall引起的中断 继续读取 防止可重入导致读取中途失败
+      errno == EINTR); // systemCall引起的中断 继续读取 防止可重入导致读取中途失败
 
   if (alread_read > 0) {
     if (need_read != 0) {

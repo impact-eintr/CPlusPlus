@@ -1,6 +1,7 @@
 #ifndef THREAD_QUEUE_H_
 #define THREAD_QUEUE_H_
 
+#include "assert.h"
 #include "event_base.h"
 #include "event_loop.h"
 #include <cstdio>

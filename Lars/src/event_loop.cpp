@@ -82,9 +82,10 @@ void event_loop::add_io_event(int fd, io_callback *proc, int mask, void *args) {
 
   // 找到当前fd是否已经有事件
   io_event_map_it it = _io_evs.find(fd);
+
   if (it == _io_evs.end()) {
     // 没找到这个事件 添加进去
-    final_mask = it->second.mask | mask;
+    final_mask = mask;
     op = EPOLL_CTL_ADD;
   } else {
     // 找到相关事件 修改MASK位
@@ -92,8 +93,7 @@ void event_loop::add_io_event(int fd, io_callback *proc, int mask, void *args) {
     op = EPOLL_CTL_MOD;
   }
 
-  // 保存好MASK 和 操作指令后 开始注册这个事件(fd +
-  // io_callback)到event_loop机制中
+  // 保存好MASK 和 操作指令后 开始注册这个事件(fd + io_callback)到event_loop机制中
 
   // 1 注册回调函数
   if (mask & EPOLLIN) {

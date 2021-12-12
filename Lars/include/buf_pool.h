@@ -2,8 +2,9 @@
 #define BUF_POOL_H_
 
 #include "io_buf.h"
+#include <cstdlib>
 #include <ext/hash_map>
-
+#include <cassert>
 // std容器要求元素元素具有 object type，引用不是 object type。
 // typedef __gnu_cxx::hash_map<int, io_buf&> pool_t; error
 typedef __gnu_cxx::hash_map<int, io_buf *> pool_t;
