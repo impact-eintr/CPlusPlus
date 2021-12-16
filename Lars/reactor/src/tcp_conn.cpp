@@ -31,8 +31,8 @@ static void tcp_conn_write_callback(event_loop *loop, int fd, void *args) {
 // _loop就是当前线程生成时 构建的那个event_loop
 // 每有一个新的连接到来 就会生成一个thread
 tcp_conn::tcp_conn(int connfd, event_loop *loop) {
-  this->_connfd = connfd;
-  this->_loop = loop;
+  _connfd = connfd;
+  _loop = loop;
 
   // 将_connfd设置为非阻塞状态
   int flag = fcntl(_connfd, F_GETFL, 0);
@@ -59,7 +59,7 @@ void tcp_conn::do_read() {
   int ret = _ibuf.read_data(_connfd);
   if (ret == -1) {
     fprintf(stderr, "read data from socket\n");
-    this->clean_conn();
+    clean_conn();
     return;
   } else if (ret == 0) {
     // 对端正常关闭
@@ -148,7 +148,6 @@ void tcp_conn::clean_conn() {
 
 // 发送消息的方法
 int tcp_conn::send_message(const char *data, int msglen, int msgid) {
-#define debug
 #ifdef debug
   printf("server send_message:%s.%d, msgid=%d\n", data, msglen, msgid);
 #endif
@@ -178,11 +177,9 @@ int tcp_conn::send_message(const char *data, int msglen, int msgid) {
     _obuf.pop(MESSAGE_HEAD_LEN);
     return -1;
   }
-
   if (active_epollout == true) {
     // 激活EPOLLOUT事件
     _loop->add_io_event(_connfd, tcp_conn_write_callback, EPOLLOUT, this);
   }
-
   return 0;
 }

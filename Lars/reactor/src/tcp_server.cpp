@@ -124,17 +124,14 @@ tcp_server::tcp_server(event_loop *loop, const char *ip, uint16_t port) {
   // 创建链接信息数组
   // 3是因为stdin,stdout,stderr
   // 已经被占用，再新开fd一定是从3开始,所以不加3就会栈溢出
-  conns = new tcp_conn *[_max_conns + 3]{nullptr};
+  conns = new tcp_conn*[_max_conns + 3];
   if (conns == nullptr) {
     fprintf(stderr, "new cons[%d] error\n", _max_conns);
     exit(1);
   }
 
-  // TODO qps 测试的时候居然因为这个段错误了: (
-  //memset(conns, 0, sizeof(tcp_conn) * (_max_conns + 3));
-  //for (int i = 0;i < sizeof(tcp_conn) * (_max_conns + 3); i++) {
-  //  printf("%d", *((char*)conns+i));
-  //}
+  memset(conns, 0, sizeof(tcp_conn*) * (_max_conns + 3));
+
   // ==============  创建线程池 ====================
   int thread_cnt = config_file::instance().GetNumber("reactor", "threadNum", 8);
   if (thread_cnt > 0) {

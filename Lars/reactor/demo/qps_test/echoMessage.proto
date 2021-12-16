@@ -2,8 +2,8 @@ syntax = "proto3";
 
 package qps_test;
 
-message EchoMessage
+message EchoMessage 
 {
-  string content = 1;
-  int32 id = 2;
-}
+    string content = 1;
+    int32 id = 2;
+};

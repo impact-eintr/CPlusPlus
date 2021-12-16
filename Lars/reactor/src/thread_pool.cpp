@@ -7,7 +7,7 @@
 #include <pthread.h>
 #include <unistd.h>
 
-// 这个函数是用来处理消息队列中消息的
+// 这个函数是用来处理 当前线程 的 消息队列 中消息的
 // 只要有人调用 thread_queue::send() 方法就会触发 EPOLLIN
 // thread_pool() --> thread_cnt个线程 --> 每个线程执行thread_main(queue) -
 // -> 开启event_loop机制 监控queue中发生的io事件 也就是queue->_evfd的事件

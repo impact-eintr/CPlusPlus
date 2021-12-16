@@ -5,7 +5,12 @@
 #include "io_buf.h"
 
 // 构造一个io_buf对象
-io_buf::io_buf(int size) : capacity(size), length(0), head(0), next(nullptr) {
+io_buf::io_buf(int size) {
+  capacity = size;
+  length = 0;
+  head = 0;
+  next = nullptr;
+
   data = new char[size];
   assert(data);
 }

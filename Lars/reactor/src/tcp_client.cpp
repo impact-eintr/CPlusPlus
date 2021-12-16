@@ -49,7 +49,7 @@ void tcp_client::do_connect() {
   // 创建套接字
   _sockfd = socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, IPPROTO_TCP);
   if (_sockfd == -1) {
-    fprintf(stderr, "create tcp client docket error\n");
+    fprintf(stderr, "create tcp client socket error\n");
     exit(1);
   }
 
@@ -66,7 +66,8 @@ void tcp_client::do_connect() {
     _loop->add_io_event(_sockfd, read_callback, EPOLLIN, this);
     // 如果写缓冲区有数据，那么也需要触发写回调
     if (this->_obuf.length != 0) {
-      _loop->add_io_event(_sockfd, write_callback, EPOLLIN, this);
+      // TODO 这里之前有问题
+      _loop->add_io_event(_sockfd, write_callback, EPOLLOUT, this);
     }
 
     printf("connect %s:%d succ!\n", inet_ntoa(_server_addr.sin_addr), ntohs(_server_addr.sin_port));
@@ -107,13 +108,10 @@ static void connection_delay(event_loop *loop, int fd, void *args) {
       cli->_conn_start_cb(cli, cli->_conn_start_cb_args);
     }
 
-    // 建立连接成功之后，主动发送send_message
-    const char *msg = "hello lars!";
-    int msgid = 1;
-    cli->send_message(msg, strlen(msg), msgid);
-
+    // 先读
     loop->add_io_event(fd, read_callback, EPOLLIN, cli);
 
+    // 再写
     if (cli->_obuf.length != 0) {
       // 输出缓冲有数据可写
       loop->add_io_event(fd, write_callback, EPOLLOUT, cli);
@@ -128,17 +126,14 @@ static void connection_delay(event_loop *loop, int fd, void *args) {
 
 static void write_callback(event_loop *loop, int fd, void *args) {
   tcp_client* cli = (tcp_client*)args;
-  printf("client write_callback()\n");
   cli->do_write();
 }
 
 static void read_callback(event_loop *loop, int fd, void *args) {
   tcp_client *cli = (tcp_client*)args;
-  printf("client read_callback()\n");
   if (cli->do_read() == -2) {
     printf("clean conn, del socket!\n");
     close(fd);
-
     exit(0);
   }
 }
@@ -149,7 +144,6 @@ int tcp_client::do_read() {
   assert(connected == true);
   // 一次性全部读取出来
 
-  printf("read_callback()\n");
   // 得到缓冲区有多少字节要被读取
   int need_read = 0;
   if (ioctl(_sockfd, FIONREAD, &need_read) == -1) {
@@ -235,7 +229,6 @@ int tcp_client::do_write() {
 
   if (_obuf.length == 0) {
     // 已经写完 删除写事件
-    printf("do write over, del EPOLLOUT\n");
     this->_loop->del_io_event(_sockfd, EPOLLOUT);
   }
   return 0;
@@ -266,11 +259,11 @@ int tcp_client::send_message(const char *data, int msglen, int msgid) {
   memcpy(_obuf.data + _obuf.length, data, msglen);
   _obuf.length += msglen;
 
-  #ifdef debug
-  printf("_obuf.length=%d _obuf_head=%d data=%s _obuf.data=%s\n",
-         _obuf.length, _obuf.head, data, _obuf.data+MESSAGE_HEAD_LEN);
-  #endif
   if (need_add_event) {
+#ifdef debug
+    printf("需要写入：_obuf.length=%d _obuf_head=%d data=%s _obuf.data=%s\n",
+           _obuf.length, _obuf.head, data, _obuf.data + MESSAGE_HEAD_LEN);
+#endif
     _loop->add_io_event(_sockfd, write_callback, EPOLLOUT, this);
   }
   return 0;
