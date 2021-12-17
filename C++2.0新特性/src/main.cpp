@@ -188,6 +188,7 @@ void Lambdas_test() {
 }; // namespace Lambdas
 
 namespace RValue {
+
 template <typename M> void test_moveable(M c, long &value) {
   char buf[10];
 
@@ -210,6 +211,7 @@ void forward(int &&i) {
   cout << "forward(int&&):" << i << endl;
   process(i);
 }
+
 } // namespace RValue
 
 #include <cstring>
@@ -224,57 +226,161 @@ public:
   static size_t MAsgn; // 累计move-asgn调用次数
   static size_t Dtor;  // 累计dtor调用次数
 private:
-  char* _data;
+  char *_data;
   size_t _len;
   void _init_data(const char *s) {
-    _data = new char[_len+1];
+    _data = new char[_len + 1];
     memcpy(_data, s, _len);
     _data[_len] = '\0';
   }
+
 public:
   // DCtor
-  MyString() :_data(nullptr), _len(0) {++DCtor;}
+  MyString() : _data(nullptr), _len(0) { ++DCtor; }
   // Ctor
   MyString(const char *p) : _len(strlen(p)) {
     ++Ctor;
     _init_data(p);
   }
   // CCtor
-  MyString(const MyString& str) :_len(str._len) {
+  MyString(const MyString &str) : _len(str._len) {
     ++CCtor;
     _init_data(str._data);
   }
 
   // MCtor
-  MyString(MyString&& str) noexcept : _data(str._data), _len(str._len) {
+  MyString(MyString &&str) noexcept : _data(str._data), _len(str._len) {
     ++MCtor;
     str._len = 0;
-    str._data = nullptr;
+    str._data = nullptr; // 这一句很重要
   }
 
   // CAsgn
-  MyString& operator=(const MyString& str) {
+  MyString &operator=(const MyString &str) {
     ++CAsgn;
     // 自我赋值检查
     if (this != &str) {
-
+      if (_data) {
+        delete _data;
+      }
+      _len = str._len;
+      _init_data(str._data);
     } else {
-
+      // 自己赋值自己 就没必要了
     }
     return *this;
   }
 
+  // MAsgn
+  MyString &operator=(MyString &&str) noexcept {
+    ++MAsgn;
+    // 自我赋值检查
+    if (this != &str) {
+      if (_data) {
+        delete _data;
+      }
+      _len = str._len;
+      _data = str._data;
+      str._len = 0;
+      str._data = nullptr; // 重要
+    }
+    return *this;
+  }
+
+  ~MyString() {
+    ++DCtor;
+    if (_data) {
+      delete (_data);
+    }
+  }
+
+  bool operator<(const MyString& rhs) const {
+    return string(this->_data) < string(rhs._data);
+  }
+
+  bool operator==(const MyString& rhs) const {
+    return string(this->_data) < string(rhs._data);
+  }
+
+  template <typename T>
+  static void output_static_data(const T &myStr) {
+    cout << "CCtor=" << T::CCtor << "MCtor=" << T::MCtor << "CAsgn=" << T::CAsgn
+         << "Dtor=" << T::Dtor << "Ctor=" << T::Ctor << "Dctor=" << T::DCtor
+         << endl;
+  }
 };
+
+
+class MyString_Nomoved {
+public:
+  static size_t DCtor; // 累计default-ctor调用次数
+  static size_t Ctor;  // 累计ctor调用次数
+  static size_t CCtor; // 累计copy-ctor调用次数
+  static size_t CAsgn; // 累计copy-asgn调用次数
+  static size_t Dtor;  // 累计dtor调用次数
+private:
+  char *_data;
+  size_t _len;
+  void _init_data(const char *s) {
+    _data = new char[_len + 1];
+    memcpy(_data, s, _len);
+    _data[_len] = '\0';
+  }
+
+public:
+  // DCtor
+  MyString_Nomoved() : _data(nullptr), _len(0) { ++DCtor; }
+  // Ctor
+  MyString_Nomoved(const char *p) : _len(strlen(p)) {
+    ++Ctor;
+    _init_data(p);
+  }
+  // CCtor
+  MyString_Nomoved(const MyString_Nomoved &str) : _len(str._len) {
+    ++CCtor;
+    _init_data(str._data);
+  }
+
+  // CAsgn
+  MyString_Nomoved &operator=(const MyString_Nomoved &str) {
+    ++CAsgn;
+    // 自我赋值检查
+    if (this != &str) {
+      if (_data) {
+        delete _data;
+      }
+      _len = str._len;
+      _init_data(str._data);
+    } else {
+      // 自己赋值自己 就没必要了
+    }
+    return *this;
+  }
+
+  ~MyString_Nomoved() {
+    ++DCtor;
+    if (_data) {
+      delete (_data);
+    }
+  }
+
+  bool operator<(const MyString_Nomoved& rhs) const {
+    return string(this->_data) < string(rhs._data);
+  }
+
+  bool operator==(const MyString_Nomoved& rhs) const {
+    return string(this->_data) < string(rhs._data);
+  }
+
+  template <typename T>
+  static void output_static_data(const T &myStr) {
+    cout << "CCtor=" << T::CCtor << "MCtor=" << T::MCtor << "CAsgn=" << T::CAsgn
+         << "Dtor=" << T::Dtor << "Ctor=" << T::Ctor << "Dctor=" << T::DCtor
+         << endl;
+  }
+};
+
+
 } // namespace MoveClass
 
-int main(int argc, char *argv[]) {
-  int a = 0;
-  RValue::process(a);
-  RValue::process(1);
-  RValue::process(move(a));
-
-  RValue::forward(2); // Rvalue通过forward()传递给另一个函数却变成了Lvalue
-                      // 这个过程中变成了named object
-  RValue::forward(move(a));
-  return 0;
-}
+int main(int argc, char *argv[]) { return 0; }

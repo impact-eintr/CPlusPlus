@@ -624,7 +624,7 @@ int main(int argc, char *argv[]) {
 # 标准库
 
 ## Rvalue references(右值引用)
-**一种新的引用类型，避免不必要的copy**
+**一种新的引用类型，避免不必要的copy(使用steal)**
 
 - Lvalue 可以出现在 operator= 左侧者
 - Rvalue 只能出现于 operator= 右侧者
@@ -667,6 +667,15 @@ int main(int argc, char *argv[]) {
 ## Perfect Forwarding
 
 ``` c++
+template<typename T1, typename T2>
+void functionA(T1&& t1, T2&& t2)
+{
+  functionB(std::forward<T1>(t1), std::forward<T2>(t2)); // 这样就可以实现完美转交
+}
+```
+
+
+``` c++
 class MyString {
 private:
     char * _data;
@@ -675,12 +684,12 @@ public:
     // copy
     MyString& operator=(const MyString& str) {
         // TODO
-        return *this;*
+        return *this;
     }
     // move
     MyString& operator=(MyString&& str) noexcept {
         // TODO
-        return *this*
+        return *this;
     }
 }
 ```
@@ -717,7 +726,95 @@ int main(int argc, char *argv[]) {
 
 ### 写一个 move aware class
 
+``` c++
+class MyString {
+public:
+  static size_t DCtor; // 累计default-ctor调用次数
+  static size_t Ctor;  // 累计ctor调用次数
+  static size_t CCtor; // 累计copy-ctor调用次数
+  static size_t CAsgn; // 累计copy-asgn调用次数
+  static size_t MCtor; // 累计move-ctor调用次数
+  static size_t MAsgn; // 累计move-asgn调用次数
+  static size_t Dtor;  // 累计dtor调用次数
+private:
+  char *_data;
+  size_t _len;
+  void _init_data(const char *s) {
+    _data = new char[_len + 1];
+    memcpy(_data, s, _len);
+    _data[_len] = '\0';
+  }
 
+public:
+  // DCtor
+  MyString() : _data(nullptr), _len(0) { ++DCtor; }
+  // Ctor
+  MyString(const char *p) : _len(strlen(p)) {
+    ++Ctor;
+    _init_data(p);
+  }
+  // CCtor
+  MyString(const MyString &str) : _len(str._len) {
+    ++CCtor;
+    _init_data(str._data);
+  }
+
+  // MCtor
+  MyString(MyString &&str) noexcept : _data(str._data), _len(str._len) {
+    ++MCtor;
+    str._len = 0;
+    str._data = nullptr; // 这一句很重要
+  }
+
+  // CAsgn
+  MyString &operator=(const MyString &str) {
+    ++CAsgn;
+    // 自我赋值检查
+    if (this != &str) {
+      if (_data) {
+        delete _data;
+      }
+      _len = str._len;
+      _init_data(str._data);
+    } else {
+      // 自己赋值自己 就没必要了
+    }
+    return *this;
+  }
+
+  // MAsgn
+  MyString &operator=(MyString &&str) noexcept {
+    ++MAsgn;
+    // 自我赋值检查
+    if (this != &str) {
+      if (_data) {
+        delete _data;
+      }
+      _len = str._len;
+      _data = str._data;
+      str._len = 0;
+      str._data = nullptr; // 重要
+    }
+    return *this;
+  }
+
+  ~MyString() {
+    ++DCtor;
+    if (_data) {
+      delete (_data);
+    }
+  }
+
+  bool operator<(const MyString& rhs) const {
+    return string(this->_data) < string(rhs._data);
+  }
+
+  bool operator==(const MyString& rhs) const {
+    return string(this->_data) < string(rhs._data);
+  }
+};
+
+```
 
 ## 
 
