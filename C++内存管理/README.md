@@ -1,11 +1,175 @@
-#include <cstddef>
-#include <cstdlib>
-#include <iostream>
+# c++ 内存管理
+
+## 总览
+
+![img](img/内存分配结构.png )
+
+|分配|释放|类别|可否重载|
+|:-:|:-:|:-:|:-:|
+|malloc()|free()|c函数|No|
+|new|delete|c++表达式|No|
+|::operator new()|::operator delete()|c++函数|Yes|
+|allocator<T>::allocate()|allocator<T>::deallocate()|stl|不可以，但可以自由设计并以之搭配任何容器|
+
+# primitives
+## new 与 delete
+
+> new
+
+``` c++
+Complex* pc = new Complex(1, 2);
+
+// 编译器转换为类似下面的代码
+Complex *pc;
+try {
+    void* mem = operator new( sizeof(Complex) ); // 分配内存
+    pc = static_cast<Complex*>(mem); // 强制转型
+    pc->Complex::Cpmplex(1, 2); // 调用构造函数
+} cache(std::bad::alloc) {
+    // 如果alloaction失败就不执行constructor
+}
+```
+
+``` c++
+void *operator(size_t size, const std::nothrow_t&) _THROE0() {
+    void *p;
+    while((p = malloc(size)) == 0) {
+        _TRY_BEGIN
+        _CACHE(std::bad_alloc)
+        return(0);
+        _CACHE_END;
+    }
+    return(p);
+}
+```
+
+
+> delete
+
+``` c++
+Complex* pc = new Complex(1, 2);
+delete pc;
+```
+
+``` c++
+pc->~Complex(); // 调用析构函数
+operator delete(pc); // 释放内存
+```
+
+``` c++
+void __cdecl operator delete(void* p) _THROW0()
+{
+    free(p);
+}
+```
+
+## array new 与 array delete
+
+``` c++
+Complex* pca = new Complex[3];
+
+delete[] pca; // 唤起3次
+```
+
+
+## placement new
+
+- placement new 允许我们建构于 allocated memory中
+- 没有所谓 placement delete,因为placement new 根本没分配 memory. 亦或称呼 operator delete(size, void*) 为placement delete
+
+``` c++
 #include <new>
-#include <stdexcept>
 
-using namespace std;
+char* buf = new char[sizeof(Complex) * 3];
+Complex* pc = new(buf)Complex(1, 2);
+...
+delete [] buf;
+```
 
+`Complex* pc = new(buf)Complex(1, 2);` 被编译器转化为
+
+``` c++
+Complex *pc;
+try {
+    void* mem = operator new( sizeof(Complex), buf); // 不分配内存
+    pc = static_cast<Complex*>(mem); // 强制转型
+    pc->Complex::Cpmplex(1, 2); // 调用构造函数
+} cache(std::bad::alloc) {
+    // 如果alloaction失败就不执行constructor
+}
+```
+
+``` c++
+void *operator(size_t, void* loc) {
+    return loc;
+}
+```
+
+
+## 重载
+
+![img](img/分配内存的途径.png )
+
+### 重载 ::operator new/delete/new []/delete[]
+
+``` c++
+namespace jj01 {
+class Foo {
+public:
+  Foo() : _id(0) {
+    cout << "default ctor.this=" << this << " id=" << _id << endl;
+  }
+
+  Foo(int i) : _id(i) { cout << "ctor.this=" << this << " id=" << _id << endl; }
+
+  ~Foo() { cout << "dctor.this=" << this << " id=" << _id << endl; }
+
+  static void *operator new(size_t);
+  static void operator delete(void *, size_t);
+  static void *operator new[](size_t);
+  static void operator delete[](void *, size_t);
+
+private:
+  int _id;
+  long _data;
+  string _str;
+};
+
+inline void *Foo::operator new(size_t size) {
+  Foo *p = (Foo *)malloc(size);
+  cout << "operator new" << endl;
+  return p;
+}
+
+inline void *Foo::operator new[](size_t size) {
+  Foo *p = (Foo *)malloc(size);
+  cout << "operator new[]" << endl;
+  return p;
+}
+
+inline void Foo::operator delete(void *pdead, size_t size) {
+  cout << "operator delete" << endl;
+  free(pdead);
+}
+
+inline void Foo::operator delete[](void *pdead, size_t size) {
+  Foo *p = (Foo *)malloc(size);
+  cout << "operator delete[]" << endl;
+  free(pdead);
+}
+
+} // namespace jj01
+
+
+```
+
+### 重载 new()/delete()
+
+我们可以重载clas member operator(),写出多个版本，前提是每一个版本声明都必须有独特的参数列, **第一个参数必须是 size_t**
+
+`Foo* pf = new(300, 'c')Foo;`
+
+``` c++
 namespace jj01 {
   class Bad{};
 class Foo {
@@ -98,6 +262,23 @@ inline void Foo::operator delete[](void *pdead, size_t size) {
 
 } // namespace jj01
 
+
+```
+
+``` c++
+
+int main(int argc, char *argv[]) {
+  jj01::Foo start;
+  jj01::Foo* p1 = new(100)jj01::Foo(1);
+  return 0;
+}
+```
+
+## 设计分配器
+
+### per-class allocator 1
+
+``` c++
 namespace jj02 {
 class Screen {
 public:
@@ -142,6 +323,21 @@ inline void Screen::operator delete(void *p, size_t size) {
 }
 } // namespace jj02
 
+namespace jj03 {}
+
+int main(int argc, char *argv[]) {
+  for (int i = 0; i < 100; i++) {
+    jj02::Screen *p = new jj02::Screen(12);
+    delete p;
+  }
+  return 0;
+}
+
+```
+
+### per-class allocator 2
+
+``` c++
 namespace jj03 {
 class Airplane {
 private:
@@ -209,9 +405,15 @@ inline void Airplane::operator delete(void *p, size_t size) {
   q->next = headOfFreeList;
   headOfFreeList = q;
 }
-
 } // namespace jj03
 
+
+```
+
+### per-class allocator 3
+> macro for static allocator(MFC)
+
+``` c++
 #include <complex>
 namespace jj04 {
 class allocator {
@@ -287,12 +489,59 @@ IMPLEMENT_POOL_ALLOC(Goo)
 
 } // namespace jj04
 
-namespace vc6 {
 
-}
+```
 
-int main(int argc, char *argv[]) {
-  jj01::Foo start;
-  jj01::Foo* p1 = new(100)jj01::Foo(1);
-  return 0;
-}
+## new handler
+当operator没有能力为我们分配出申请的memory 会抛出一个 std::bad_alloc_exception 
+
+`new(nothrow)Foo;`
+
+``` c++
+typedef void(*new_handler)();
+new_handler set_new_handler(new_handler p) throw();
+```
+
+设计良好的new handler只有两个选择
+- 让更多memory可用
+- 调用 abort() 或者 exit()
+
+# std::allocator
+
+## VC6
+
+
+
+## GCC
+
+
+## 
+
+
+
+## 
+
+
+# malloc/free
+
+## 
+
+
+
+## 
+
+
+
+## 
+
+# loki::allocator
+
+## 
+
+## 
+
+# other allocators
+
+## 
+
+## 
