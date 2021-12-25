@@ -6,11 +6,12 @@
 - C [完结]<https://github.com/impact-eintr/LinuxC>
 - C++ 面向对象 [完结]
 - C++ STL [更新中]
+  - TinySTL [TODO]
 - C++ 11/14 [更新中]
-- C++ 内存管理 [TODO]
+- C++ 内存管理 [更新中]
+  - 一个简单的malloc/free 相关视频 <https://www.bilibili.com/video/BV1HT4y1d7PN>
 - C++ 设计模式[TODO]
 - APUE[完结]
-- 数据结构 [TODO]
 - C/C++的工程构建 [TODO]
 
 [常用库]
