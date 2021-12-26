@@ -714,12 +714,133 @@ void test_G29_alloc() {
 
 # malloc/free
 
+``` c++
+#include <iostream>
+#include <cstdint>
+
+using namespace std;
+
+int main(int argc, char *argv[]) {
+  int b1[4]{1, 2, 3, 4}; // 16 align
+  int b2[5]{5, 4, 3, 2, 1};
+
+  cout << b1 << " " << b2 << endl;
+
+  //cout << sizeof(int) << endl; // 4
+  cout << *(int *)((uint64_t)&b2 - sizeof(int)) << endl;
+
+  return 0;
+}
+
+```
 
 
+``` c++
+#include <iostream>
+#include <cstdint>
+
+using namespace std;
+
+int main(int argc, char *argv[]) {
+
+  int* p = (int *)malloc(4 * sizeof(int)); // p 在 stack上
+
+  // 但以下数据在heap上
+  p[0] = 1;
+  p[1] = 1;
+  p[2] = 1;
+  p[3] = 1;
+
+  free(p);
+
+  return 0;
+}
+
+```
+
+> const char * 与 char *const
+
+``` c++
+#include <iostream>
+#include <cstdlib>
+#include <cstdint>
+
+using namespace std;
+
+int main(int argc, char *argv[]) {
+
+  char * const p = "hello world\0";
+  const char * str = (char *)malloc(6);
+
+  //p = str;
+  //*(str+1) = 'l';
+  str = p;
+
+  cout << p << endl;
+  cout << str << endl;
+
+  return 0;
+}
+
+```
 
 ## 隐式空闲链表
 
+``` c++
+#include <iostream>
+#include <cstdlib>
+#include <cstdint>
 
+using namespace std;
+
+int main(int argc, char *argv[]) {
+
+  char * str = (char *)malloc(6);
+  str = "hello\0";
+
+
+// size = 16 = 8 * 2 byte = 0x0000 0010
+//  0000 0000
+//  0000 0000
+//  0000 0000
+//  0000 0000
+//  0000 0000
+//  0000 0000
+//  '\0'
+//  'o'
+//  ========= 8 byte对齐
+//  'l'
+//  'l'
+//  'e'
+//  'h'
+//  0000 0000
+//  0000 0000
+//  0000 0000
+//  0001 0001
+
+//  6 / 16 = 0.375
+
+  cout << str << endl;
+
+  return 0;
+}
+
+```
+
+
+``` c++
+void get_mem_block(size_t size) {
+  void *p = malloc(size);
+
+  uint64_t header_addr = (uint64_t)p - sizeof(uint32_t);
+
+  uint32_t header_value = *((uint32_t *)header_addr);
+  uint32_t block_size = header_value & 0xFFFFFFFE;
+  uint32_t allocated = header_value & 0x1;
+
+  uint64_t next_header_addr = header_addr + block_size;
+}
+```
 
 ## 显式空闲链表
 
