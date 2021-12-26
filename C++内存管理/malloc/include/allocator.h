@@ -8,14 +8,14 @@
 extern uint64_t heap_start_vaddr;
 extern uint64_t heap_end_vaddr;
 
-#define HEAP_MAX_SIZE (4096 * 1024)
+#define HEAP_MAX_SIZE (4096 * 1024) // 4MB
 extern uint8_t heap[HEAP_MAX_SIZE];
 
 #define FREE (0)
 #define ALLOCATED (1)
 #define NIL (0)
 
-#define MIN_EXPLICIT_FREE_BLOCKSIZE (16)
+#define MIN_EXPLICIT_FREE_LIST_BLOCKSIZE (16)
 #define MIN_READBLACK_TREE_BLOCKSIZE (24)
 
 // to allocate on physical page for heap(申请一个页表)
@@ -57,7 +57,7 @@ uint64_t get_lastblock();
 int is_lastblock(uint64_t vaddr);
 int is_firstblock(uint64_t vaddr);
 
-// TODO for free block as data structure
+// for free block as data structure
 uint64_t get_field32_block_ptr(uint64_t header_vaddr, uint32_t min_blocksize,
                                uint32_t offset);
 void set_field32_block_ptr(uint64_t header_vaddr, uint64_t block_ptr,

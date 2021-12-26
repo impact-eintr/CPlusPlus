@@ -4,27 +4,33 @@
 #include <stdint.h>
 #include "allocator.h"
 #include "algorithm.h"
-#include "small_list.h"
+#include "block_list.h"
 
-extern linkedlist_internal_t small_list;
+// 所谓的 内存链表管理都是建立在 heap[MAX_HEAP_SIZE] 上的
+// 对于 implicit_list 而言
+// [header...footer | header...footer | header...footer]
+// 其实就是直接操作这个数组 使用 header/footer +/- blocksize 实现一个抽象的单向链表
 
-// Manage small blocks
+// 外部引入的 block_list
+extern linkedlist_internal_t block_list;
+
+// Manage block blocks
 #define MIN_IMPLICIT_FREE_LIST_BLOCKSIZE (8)
 
 int implicit_list_initialize_free_block()
 {
-  // init small block list
-  small_list_init();
+  // init block block list
+  block_list_init();
   return 1;
 }
 
 uint64_t implicit_list_search_free_block(uint32_t payload_size, uint32_t *alloc_blocksize)
 {
   // search 8-byte block list
-  if (payload_size <= 4 && small_list.count != 0) {
-    // a small block and 8-byte list is not empty
+  if (payload_size <= 4 && block_list.count != 0) {
+    // a block block and 8-byte list is not empty
     *alloc_blocksize = 8;
-    return small_list.head;
+    return block_list.head;
   }
     
   uint32_t free_blocksize = round_up(payload_size, 8) + 4 + 4; // 8对齐+header_footer
@@ -59,7 +65,7 @@ int implicit_list_insert_free_block(uint64_t free_header)
   switch (blocksize)
   {
   case 8:
-    small_list_insert(free_header);
+    block_list_insert(free_header);
     break;
         
   default:
@@ -82,7 +88,7 @@ int implicit_list_delete_free_block(uint64_t free_header)
   switch (blocksize)
   {
   case 8:
-    small_list_delete(free_header);
+    block_list_delete(free_header);
     break;
         
   default:
@@ -94,5 +100,5 @@ int implicit_list_delete_free_block(uint64_t free_header)
 
 void implicit_list_check_free_block()
 {
-  small_list_check_free_blocks();
+  block_list_check_free_blocks();
 }

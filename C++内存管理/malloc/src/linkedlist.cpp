@@ -10,13 +10,13 @@
 /*======================================*/
 
 int linkedlist_internal_add(linkedlist_internal_t *list,
-                            linkedlist_node_interface *i_node, uint64_t value) {
+                          linkedlist_node_interface *i_node, uint64_t value) {
   if (list == NULL) {
     return 0;
   }
   assert(list->update_head != NULL);
   linkedlist_validate_interface(i_node, ILLIST_CONSTRUCT | ILLIST_PREV |
-                                            ILLIST_NEXT | ILLIST_VALUE);
+                                ILLIST_NEXT | ILLIST_VALUE);
 
   uint64_t node = i_node->construct_node();
   i_node->set_node_value(node, value);
@@ -24,8 +24,8 @@ int linkedlist_internal_add(linkedlist_internal_t *list,
 }
 
 int linkedlist_internal_insert(linkedlist_internal_t *list,
-                               linkedlist_node_interface *i_node,
-                               uint64_t node) {
+                             linkedlist_node_interface *i_node,
+                             uint64_t node) {
   if (list == NULL) {
     return 0;
   }
@@ -58,14 +58,14 @@ int linkedlist_internal_insert(linkedlist_internal_t *list,
 }
 
 int linkedlist_internal_delete(linkedlist_internal_t *list,
-                               linkedlist_node_interface *i_node,
-                               uint64_t node) {
+                             linkedlist_node_interface *i_node,
+                             uint64_t node) {
   if (list == NULL || node == NULL_ID) {
     return 0;
   }
   assert(list->update_head != NULL);
   linkedlist_validate_interface(i_node, ILLIST_COMPARE | ILLIST_CHECKNULL |
-                                            ILLIST_PREV | ILLIST_NEXT);
+                                ILLIST_PREV | ILLIST_NEXT);
 
   // update the prev and next pointers
   // same for the only one node situation
@@ -238,16 +238,19 @@ static int set_node_value(uint64_t node_id, uint64_t value) {
   return 1;
 }
 
-static linkedlist_node_interface i_node = {.construct_node = &construct_node,
-                                           .destruct_node = &destruct_node,
-                                           .is_null_node = &is_null_node,
-                                           .compare_nodes = &compare_nodes,
-                                           .get_node_prev = &get_node_prev,
-                                           .set_node_prev = &set_node_prev,
-                                           .get_node_next = &get_node_next,
-                                           .set_node_next = &set_node_next,
-                                           .get_node_value = &get_node_value,
-                                           .set_node_value = &set_node_value};
+static linkedlist_node_interface i_node =
+{
+  .construct_node = &construct_node,
+  .destruct_node = &destruct_node,
+  .is_null_node = &is_null_node,
+  .compare_nodes = &compare_nodes,
+  .get_node_prev = &get_node_prev,
+  .set_node_prev = &set_node_prev,
+  .get_node_next = &get_node_next,
+  .set_node_next = &set_node_next,
+  .get_node_value = &get_node_value,
+  .set_node_value = &set_node_value
+};
 
 // child class of base class
 static int update_head(linkedlist_internal_t *this_pointer, uint64_t new_head) {
@@ -315,5 +318,5 @@ linkedlist_node_t *linkedlist_next(linkedlist_t *list) {
 
 linkedlist_node_t *linkedlist_index(linkedlist_t *list, uint64_t index) {
   return (linkedlist_node_t *)linkedlist_internal_index(&list->base, &i_node,
-                                                        index);
+                                                   index);
 }

@@ -3,9 +3,9 @@
 #include "algorithm.h"
 #include "allocator.h"
 
-#include "small_list.h"
+#include "block_list.h"
 
-linkedlist_internal_t small_list;
+linkedlist_internal_t block_list;
 
 /* ------------------------------------- */
 /*  Operations for List Block Structure  */
@@ -82,34 +82,78 @@ static int update_head(linkedlist_internal_t *this_l, uint64_t block_vaddr) {
   return 1;
 }
 
-void small_list_init() {
-  small_list.head = NULL_ID;
-  small_list.count = 0;
-  small_list.update_head = &update_head;
+void block_list_init() {
+  block_list.head = NULL_ID;
+  block_list.count = 0;
+  block_list.update_head = &update_head;
 }
 
-void small_list_insert(uint64_t free_header) {
+void block_list_insert(uint64_t free_header) {
   assert(get_firstblock() <= free_header && free_header <= get_lastblock());
   assert(free_header % 8 == 4);
   assert(get_blocksize(free_header) == 8);
   assert(get_allocated(free_header) == FREE);
 
-  linkedlist_internal_insert(&small_list, &i_block8, free_header);
+  linkedlist_internal_insert(&block_list, &i_block8, free_header);
 }
 
-void small_list_delete(uint64_t free_header) {
+void block_list_delete(uint64_t free_header) {
   assert(get_firstblock() <= free_header && free_header <= get_lastblock());
   assert(free_header % 8 == 4);
   assert(get_blocksize(free_header) == 8);
 
-  linkedlist_internal_delete(&small_list, &i_block8, free_header);
+  linkedlist_internal_delete(&block_list, &i_block8, free_header);
 }
 
-// from segregated list
-//extern void check_size_list_correctness(linkedlist_internal_t *list,
-//                                        linkedlist_node_interface *i_node,
-//                                        uint32_t min_size, uint32_t max_size);
+void check_size_list_correctness(linkedlist_internal_t *list,
+                                 linkedlist_node_interface *i_node,
+                                 uint32_t min_size, uint32_t max_size) {
+  uint32_t counter = 0;
+  uint64_t b = get_firstblock();
+  int head_exists = 0;
+  while (b <= get_lastblock()) {
+    uint32_t bsize = get_blocksize(b);
+    if (get_allocated(b) == FREE && min_size <= bsize && bsize <= max_size) {
+      uint64_t prev = i_node->get_node_prev(b);
+      uint64_t next = i_node->get_node_next(b);
+      uint64_t prev_next = i_node->get_node_next(prev);
+      uint64_t next_prev = i_node->get_node_prev(next);
 
-void small_list_check_free_blocks() {
-  //check_size_list_correctness(&small_list, &i_block8, 8, 8);
+      assert(get_allocated(prev) == FREE);
+      assert(get_allocated(next) == FREE);
+      assert(prev_next == b);
+      assert(next_prev == b);
+
+      if (b == list->head) {
+        head_exists = 1;
+      }
+
+      counter += 1;
+    }
+    b = get_nextheader(b);
+  }
+  assert(list->count == 0 || head_exists == 1);
+  assert(counter == list->count);
+
+  uint64_t p = list->head;
+  uint64_t n = list->head;
+  for (int i = 0; i < list->count; ++i) {
+    uint32_t psize = get_blocksize(p);
+    uint32_t nsize = get_blocksize(n);
+
+    assert(get_allocated(p) == FREE);
+    assert(min_size <= psize && psize <= max_size);
+
+    assert(get_allocated(n) == FREE);
+    assert(min_size <= nsize && nsize <= max_size);
+
+    p = i_node->get_node_prev(p);
+    n = i_node->get_node_next(n);
+  }
+  assert(p == list->head);
+  assert(n == list->head);
+}
+
+void block_list_check_free_blocks() {
+  check_size_list_correctness(&block_list, &i_block8, 8, 8);
 }
