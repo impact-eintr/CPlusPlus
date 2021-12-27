@@ -1,0 +1,241 @@
+#include "algorithm.h"
+#include "allocator.h"
+#include "block_list.h"
+#include <assert.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+// 所谓的 内存链表管理都是建立在 heap[MAX_HEAP_SIZE] 上的
+// 对于 explicit_list 而言
+// 是维护了如下的一个free_list
+//
+//   ____   ________________prev___________   ____________prev_________________   ______prev____
+//       | V                               | V                                 | V
+// [...header.F.footer | header.A.footer | header.F.footer | header.A.footer | header.F.footer...]
+//  ___^ |_____________next________________^  |________________next____________^ |______next____
+//
+// 遍历的时候只找这个 free_list 找到一个block_size >= request_size
+
+extern linkedlist_internal_t block_list;
+
+/* ------------------------------------- */
+/*  Operations for List Block Structure  */
+/* ------------------------------------- */
+
+static int compare_nodes(uint64_t first, uint64_t second) {
+  return !(first == second);
+}
+
+static int is_null_node(uint64_t node_id) { return node_id == NULL_ID; }
+
+static uint64_t get_prevfree(uint64_t header_vaddr) {
+  return get_field32_block_ptr(header_vaddr, MIN_EXPLICIT_FREE_LIST_BLOCKSIZE,
+                               4);
+}
+
+uint64_t get_nextfree(uint64_t header_vaddr) {
+  return get_field32_block_ptr(header_vaddr, MIN_EXPLICIT_FREE_LIST_BLOCKSIZE,
+                               8);
+}
+
+static int set_prevfree(uint64_t header_vaddr, uint64_t prev_vaddr) {
+  set_field32_block_ptr(header_vaddr, prev_vaddr,
+                        MIN_EXPLICIT_FREE_LIST_BLOCKSIZE, 4);
+  return 1;
+}
+
+static int set_nextfree(uint64_t header_vaddr, uint64_t next_vaddr) {
+  set_field32_block_ptr(header_vaddr, next_vaddr,
+                        MIN_EXPLICIT_FREE_LIST_BLOCKSIZE, 8);
+  return 1;
+}
+
+// register the 5 functions above to be called by the linked list framework
+static linkedlist_node_interface i_free_block = {
+    .is_null_node = &is_null_node,
+    .compare_nodes = &compare_nodes,
+    .get_node_prev = &get_prevfree,
+    .set_node_prev = &set_prevfree,
+    .get_node_next = &get_nextfree,
+    .set_node_next = &set_nextfree,
+};
+
+/* ------------------------------------- */
+/*  Operations for Linked List           */
+/* ------------------------------------- */
+
+static int update_head(linkedlist_internal_t *this_pointer,
+                       uint64_t block_vaddr) {
+  if (this_pointer == NULL) {
+    return 0;
+  }
+
+  assert(block_vaddr == NULL_ID ||
+         (get_firstblock() <= block_vaddr && block_vaddr <= get_lastblock()));
+  assert(block_vaddr == NULL_ID || block_vaddr % 8 == 4);
+  assert(block_vaddr == NULL_ID ||
+         get_blocksize(block_vaddr) >= MIN_EXPLICIT_FREE_LIST_BLOCKSIZE);
+
+  this_pointer->head = block_vaddr;
+  return 1;
+}
+
+// The explicit free linked list
+linkedlist_internal_t explicit_list;
+
+void explist_list_init() {
+  explicit_list.head = NULL_ID;
+  explicit_list.count = 0;
+  explicit_list.update_head = &update_head;
+}
+
+uint64_t explicit_list_search(uint32_t free_blocksize) {
+  // search explicit free list
+  uint64_t b = explicit_list.head;
+  uint32_t counter_copy = explicit_list.count;
+  for (int i = 0; i < counter_copy; ++i) {
+    uint32_t b_blocksize = get_blocksize(b);
+    uint32_t b_allocated = get_allocated(b);
+
+    if (b_allocated == FREE && free_blocksize <= b_blocksize) {
+      return b;
+    } else {
+      b = get_nextfree(b);
+    }
+  }
+
+  return NIL;
+}
+
+void explicit_list_insert(uint64_t free_header) {
+  assert(get_firstblock() <= free_header && free_header <= get_lastblock());
+  assert(free_header % 8 == 4);
+  assert(get_blocksize(free_header) >= MIN_EXPLICIT_FREE_LIST_BLOCKSIZE);
+  assert(get_allocated(free_header) == FREE);
+
+  linkedlist_internal_insert(&explicit_list, &i_free_block, free_header);
+}
+
+void explicit_list_delete(uint64_t free_header) {
+  assert(get_firstblock() <= free_header && free_header <= get_lastblock());
+  assert(free_header % 8 == 4);
+  assert(get_blocksize(free_header) >= MIN_EXPLICIT_FREE_LIST_BLOCKSIZE);
+  // assert(get_allocated(free_header) == FREE);
+
+  linkedlist_internal_delete(&explicit_list, &i_free_block, free_header);
+  set_prevfree(free_header, NIL);
+  set_nextfree(free_header, NIL);
+}
+
+/* ------------------------------------- */
+/*  For Debugging                        */
+/* ------------------------------------- */
+
+// from segregated list
+extern void check_size_list_correctness(linkedlist_internal_t *list,
+                                        linkedlist_node_interface *i_node,
+                                        uint32_t min_size, uint32_t max_size);
+
+static void explicit_list_print() {
+  uint64_t p = explicit_list.head;
+  printf("explicit free list <{%lu},{%lu}>:\n", explicit_list.head,
+         explicit_list.count);
+  for (int i = 0; i < explicit_list.count; ++i) {
+    printf("<%lu:%u/%u> ", p, get_blocksize(p), get_allocated(p));
+    p = get_nextfree(p);
+  }
+  printf("\n");
+}
+
+void check_block16_correctness() {
+  check_size_list_correctness(&explicit_list, &i_free_block, 16, 16);
+}
+
+/* ------------------------------------- */
+/*  Implementation                       */
+/* ------------------------------------- */
+
+int explicit_list_initialize_free_block() {
+  uint64_t first_header = get_firstblock();
+
+  set_prevfree(first_header, first_header);
+  set_nextfree(first_header, first_header);
+
+  explist_list_init();
+  explicit_list_insert(first_header);
+
+  // init block block list
+  block_list_init();
+
+  return 1;
+}
+
+uint64_t explicit_list_search_free_block(uint32_t payload_size,
+                                         uint32_t *alloc_blocksize) {
+  // search 8-byte block list
+  if (payload_size <= 4) {
+    // a block block
+    *alloc_blocksize = 8;
+
+    if (block_list.count != 0) {
+      // 8-byte list is not empty
+      return block_list.head;
+    }
+  } else {
+    *alloc_blocksize = round_up(payload_size, 8) + 4 + 4;
+    assert((*alloc_blocksize) >= MIN_EXPLICIT_FREE_LIST_BLOCKSIZE);
+  }
+
+  // search explicit free list
+  return explicit_list_search(*alloc_blocksize);
+}
+
+int explicit_list_insert_free_block(uint64_t free_header) {
+  assert(free_header % 8 == 4);
+  assert(get_firstblock() <= free_header && free_header <= get_lastblock());
+  assert(get_allocated(free_header) == FREE);
+
+  uint32_t blocksize = get_blocksize(free_header);
+  assert(blocksize % 8 == 0);
+  assert(blocksize >= 8);
+
+  switch (blocksize) {
+  case 8:
+    block_list_insert(free_header);
+    break;
+
+  default:
+    explicit_list_insert(free_header);
+    break;
+  }
+
+  return 1;
+}
+
+int explicit_list_delete_free_block(uint64_t free_header) {
+  assert(free_header % 8 == 4);
+  assert(get_firstblock() <= free_header && free_header <= get_lastblock());
+  assert(get_allocated(free_header) == FREE);
+
+  uint32_t blocksize = get_blocksize(free_header);
+  assert(blocksize % 8 == 0);
+  assert(blocksize >= 8);
+
+  switch (blocksize) {
+  case 8:
+    block_list_delete(free_header);
+    break;
+
+  default:
+    explicit_list_delete(free_header);
+    break;
+  }
+
+  return 1;
+}
+
+void explicit_list_check_free_block() {
+  block_list_check_free_blocks();
+  check_size_list_correctness(&explicit_list, &i_free_block, 16, 0xFFFFFFFF);
+}
