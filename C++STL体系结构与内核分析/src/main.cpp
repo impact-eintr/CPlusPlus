@@ -453,9 +453,10 @@ namespace unoredred_map_test {
 void test_unoredered_map() { cout << "test_unoredered_map().......\n"; }
 } // namespace unoredred_map_test
 
-
-
 int main(int argc, char *argv[]) {
-
+  std::map<int, int> c;
+  c[1] = 2;
+  c.operator[](2) = 4;
+  std::cout << c[1] << " " << c[2] << std::endl;
   return 0;
 }

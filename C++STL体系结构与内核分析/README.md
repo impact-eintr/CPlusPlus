@@ -560,7 +560,88 @@ void test_unoredered_multimap() {
 
 ```
 
+## OOP vs GP
 
+> OOP企图将 datas 和 methods关联在一起
+
+> GP是将datas 和 methods 分开来
+
+采用 GP:
+- Containers 和 Alogorithms 团队可以各自闭门造车，只要用Iterator沟通即可
+- Algorithms通过Iterators去顶操作范围，并通过Iterators取用Container元素
+
+## 技术基础
+
+### 操作符重载
+
+| 表达式 | As member function | As non-member function | Example                                                            |
+|:------:|:------------------:|:----------------------:|:------------------------------------------------------------------:|
+| @a     | (a).operator@ ()   | operator@ (a)          | !std::cin calls std::cin.operator!()                               |
+| a@b    | (a).operator@ (b)  | operator@(a, b)        | std::cout << 42 calls std::cout.operator << (42)                   |
+| a=b    | (a).operator= (b)  | 不支持                 | std::string s;s = "abc";calls s.operator=("abc")                   |
+| a[b]   | (a).operator[] (b) | 不支持                 | std::map<int, int> m;m[1]=2;calls m.operator[](1)                  |
+| a->    | (a).operator-> ()  | 不支持                 | std::unique_ptr<S> ptr(newS);ptr->bar()  calls ptr.operator->()    |
+| a@     | (a).operator@ (0)  | operator@(a, 0)        | std::vector<int>::iterator i = v.begin();i++ calls i.operator++(0) |
+
+``` c++
+#include <map>
+int main(int argc, char *argv[]) {
+  std::map<int, int> c;
+  c[1] = 2;
+  c.operator[](2) = 4;
+  std::cout << c[1] << " " << c[2] << std::endl;
+  return 0;
+}
+
+```
+
+> 以下几个不能被重载
+
+- `::`
+- `.`
+- `.*`
+- `?:`
+- `**`
+- `<>`
+- `&|`
+
+
+
+### 模板
+
+> 类模板
+
+``` c++
+template <typename T>
+class complex
+{
+public:
+  complex (T r = 0, T i = 0) : re(r), im(i) {}
+private:
+  T re, im;
+}
+
+{
+  complex<int> c1(1, 2);
+}
+```
+
+> 泛化 与 特化
+
+``` c++
+template <clas type>
+struct __type_traits {
+
+}
+
+template <> struct __type_traits<int>{
+
+}
+
+template <> struct __type_traits<double> {
+
+}
+```
 
 ## 分配器
 
@@ -584,7 +665,7 @@ template<class _Ty, class _A = allocator<_Ty> > class deque {
 };
 ```
 
-> gcc2.91 的alloc (具体应该会在内存管理章节讲解)
+> gcc2.91 的alloc 
 
 ``` c++
 template <class _Tp>
@@ -638,6 +719,105 @@ public:
 ```
 vector<string, __gun_cxx::__poll_alloc<string>> vc;
 ```
+
+> 具体实现
+
+``` c++
+
+```
+
+``` c++
+
+```
+
+## 迭代器
+前闭后开 `[ )`
+
+``` c++
+Container<T> c;
+...
+Container<T> it = c.begin();
+for (; it != c.end();++it){
+    // 
+}
+```
+
+``` c++
+std::vector<double> vec;
+...
+for (auto elem : vec) {
+  std::cout << elem << std::endl;
+}
+
+...
+for (auto& elem : vec) {
+  elem *= 3;
+}
+```
+
+### Iterator需要遵循的原则
+
+![img](img/迭代器的地位.png)
+
+迭代器将一段容器的范围传给算法，并通过iterator来操作元素，这时需要一些iterator的性质来优化其操作。
+
+``` c++
+#include <iterator>
+
+template<typename _Iter>
+inline typename std::iterator_traits<_Iter>::iterator_category
+__tierator_category(const _Iter&)
+{
+  return typename std::iterator_traits<_Iter>::iterator_category();
+} // 返回分类 [1]
+
+template<typename _RandonAccessIterator>
+void __rotate(
+  _RandonAccessIterator __first,
+  _RandonAccessIterator __middle,
+  _RandonAccessIterator __last,
+  std::random_access_iterator_tag) // 见[1]
+{
+  typedef typename std::iterator_traits<_RandonAccessIterator>::difference_type _Distance; // it的距离
+  typedef typename std::iterator_traits<_RandonAccessIterator>::value_type _valueType; // it的值类型
+  // ...
+}
+
+template<typename _ForwardIterator>
+inline void
+rotate(_ForwardIterator __first,
+       _ForwardIterator __middle,
+       _ForwardIterator __last)
+{
+  __rotate(__first, __middle, __last , std::__iterator_category(__first));
+}
+
+```
+
+Iterator Traits 用来分离calss iterator 和 non-class iterator
+
+``` c++
+template <class I> // 如果I是class iterator
+struct iterator_traits {
+  typedef typename I::value_type value_type;
+};
+
+// 两个偏特化
+template <class T> // 如果I是pointer to T
+struct iterator_traits<T*> {
+  typedef T value_type;
+};
+
+template <class > // 如果I是pointer to const T
+struct iterator_traits<const T*> {
+  typedef T value_type;
+};
+```
+
+![img](img/traits设计.png)
+
+![img](img/完整的traits.png)
+
 
 ## 容器剖析
 
@@ -724,6 +904,16 @@ template <class T, class Alloc = __gnu_cxx::__pool_alloc<T>> class list {
 ```
 
 ![img](img/list版本改进.png)
+
+> 完整实现
+
+``` c++
+
+```
+
+``` c++
+
+```
 
 ### vector
 
@@ -846,94 +1036,6 @@ struct array {
 
 
 
-
-## 迭代器
-前闭后开 `[ )`
-
-``` c++
-Container<T> c;
-...
-Container<T> it = c.begin();
-for (; it != c.end();++it){
-    // 
-}
-```
-
-``` c++
-std::vector<double> vec;
-...
-for (auto elem : vec) {
-  std::cout << elem << std::endl;
-}
-
-...
-for (auto& elem : vec) {
-  elem *= 3;
-}
-```
-
-### Iterator需要遵循的原则
-
-![img](img/迭代器的地位.png)
-
-迭代器将一段容器的范围传给算法，并通过iterator来操作元素，这时需要一些iterator的性质来优化其操作。
-
-``` c++
-#include <iterator>
-
-template<typename _Iter>
-inline typename std::iterator_traits<_Iter>::iterator_category
-__tierator_category(const _Iter&)
-{
-  return typename std::iterator_traits<_Iter>::iterator_category();
-} // 返回分类 [1]
-
-template<typename _RandonAccessIterator>
-void __rotate(
-  _RandonAccessIterator __first,
-  _RandonAccessIterator __middle,
-  _RandonAccessIterator __last,
-  std::random_access_iterator_tag) // 见[1]
-{
-  typedef typename std::iterator_traits<_RandonAccessIterator>::difference_type _Distance; // it的距离
-  typedef typename std::iterator_traits<_RandonAccessIterator>::value_type _valueType; // it的值类型
-  // ...
-}
-
-template<typename _ForwardIterator>
-inline void
-rotate(_ForwardIterator __first,
-       _ForwardIterator __middle,
-       _ForwardIterator __last)
-{
-  __rotate(__first, __middle, __last , std::__iterator_category(__first));
-}
-
-```
-
-Iterator Traits 用来分离calss iterator 和 non-class iterator
-
-``` c++
-template <class I> // 如果I是class iterator
-struct iterator_traits {
-  typedef typename I::value_type value_type;
-};
-
-// 两个偏特化
-template <class T> // 如果I是pointer to T
-struct iterator_traits<T*> {
-  typedef T value_type;
-};
-
-template <class > // 如果I是pointer to const T
-struct iterator_traits<const T*> {
-  typedef T value_type;
-};
-```
-
-![img](img/traits设计.png)
-
-![img](img/完整的traits.png)
 
 ## 适配器
 
