@@ -1,6 +1,7 @@
 #include <getopt.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -33,6 +34,8 @@ static void print_help() {
   printf("-H --help   show help\n");
 }
 
+#define BUFSIZE 320*1024/8*3
+
 /*write to fd len bytes data*/
 static int writen(int fd, const void *buf, size_t len) {
   int count = 0;
@@ -61,7 +64,7 @@ int main(int argc, char *argv[]) {
   int sd = 0;
   struct ip_mreqn mreq;     // group setting
   struct sockaddr_in laddr; // local address
-  int val;                  // set sockopt
+  uint64_t receive_buf_size = BUFSIZE;
   int pd[2];
   pid_t pid;
   struct sockaddr_in server_addr;
@@ -119,9 +122,8 @@ int main(int argc, char *argv[]) {
     perror("setsockopt()");
     exit(1);
   }
-  val = 1;
   // improve efficiency
-  if (setsockopt(sd, IPPROTO_IP, IP_MULTICAST_LOOP, &(val), sizeof(val)) < 0) {
+  if (setsockopt(sd, IPPROTO_IP, IP_MULTICAST_LOOP, &(receive_buf_size), sizeof(receive_buf_size)) < 0) {
     perror("setsockopt()");
     exit(1);
   }
@@ -210,10 +212,12 @@ int main(int argc, char *argv[]) {
     raddr_len = sizeof(raddr);
     char ipstr_raddr[30];
     char ipstr_server_addr[30];
+    char rcvbuf[BUFSIZE];
+    uint32_t offset = 0;
+    memset(rcvbuf, 0, BUFSIZE);
+    int bufct = 0; // buffer count
     while (1) {
-      len = recvfrom(sd, msg_channel, MSG_CHANNEL_MAX, 0, (void *)&raddr,
-                     &raddr_len);
-      fprintf(stderr, "raddr:%d\n", raddr.sin_addr.s_addr);
+      len = recvfrom(sd, msg_channel, MSG_CHANNEL_MAX, 0, (void *)&raddr, &raddr_len);
       //防止有人恶意发送不相关的包
       if (raddr.sin_addr.s_addr != server_addr.sin_addr.s_addr) {
         inet_ntop(AF_INET, &raddr.sin_addr.s_addr, ipstr_raddr, 30);
@@ -221,24 +225,34 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Ignore:addr not match. raddr:%s server_addr:%s.\n",
                 ipstr_raddr, ipstr_server_addr);
         continue;
-        // exit(1);
       }
       if (raddr.sin_port != server_addr.sin_port) {
         fprintf(stderr, "Ignore:port not match.\n");
         continue;
-        // exit(1);
       }
       if (len < sizeof(struct msg_channel_st)) {
         fprintf(stderr, "Ignore:massage too short.\n");
         continue;
       }
-      //可以做一个缓冲机制，停顿1  2 秒，不采用接收一点播放一点
+
       if (msg_channel->chnid == chosenid) {
-        fprintf(stdout, "Accept massage:%d recived.\n", msg_channel->chnid);
-        if (writen(pd[1], msg_channel->data, len - sizeof(chnid_t)) <
-            0) /*write pipe*/
-          exit(1);
+        memcpy(rcvbuf + offset, msg_channel->data, len - sizeof(chnid_t));
+        offset += len - sizeof(chnid_t);
+
+        if (bufct++ % 2 == 0) {
+          if (writen(pd[1], rcvbuf, offset) < 0) {
+            exit(1);
+          }
+          offset = 0;
+        }
       }
+
+      //可以做一个缓冲机制，停顿1  2 秒，不采用接收一点播放一点
+      // if (msg_channel->chnid == chosenid) {
+      //  if (writen(pd[1], msg_channel->data, len - sizeof(chnid_t)) < 0) {
+      //    exit(1);
+      //  }
+      //}
     }
 
     free(msg_channel);

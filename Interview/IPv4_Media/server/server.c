@@ -163,7 +163,6 @@ int main(int argc, char** argv) {
   } else if (server_conf.runmode == RUN_FOREGROUND) { // 前台运行
 
   } else {
-    // fprintf(stderr, "EINVAL\n");
     syslog(LOG_ERR, "EINVAL server_conf.runmode.");
     exit(1);
   }
@@ -187,7 +186,6 @@ int main(int argc, char** argv) {
   /*if error*/
   /*create channel thread*/
   //创建频道线程
-  printf("%d个频道\n", list_size);
   int i = 0;
   for (i = 0; i < list_size; i++) {
     err = thr_channel_create(list + i);

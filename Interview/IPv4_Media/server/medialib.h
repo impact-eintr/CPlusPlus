@@ -4,7 +4,7 @@
 #include "../include/proto.h"
 #include <stdio.h>
 
-// 记录每一条节目单嘻嘻 频道号 描述信息
+// 记录每一条节目单信息 频道号 描述信息
 struct mlib_listentry_st{
   chnid_t chnid;
   char *desc;

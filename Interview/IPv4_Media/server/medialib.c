@@ -153,8 +153,8 @@ static int open_next(chnid_t chnid) {
   for (int i = 0; i < channel[chnid].mp3glob.gl_pathc; ++i) {
     channel[chnid].pos++; // 更新偏移
     if (channel[chnid].pos == channel[chnid].mp3glob.gl_pathc) {
-      printf("没有新文件了\n");
-      break; // 没有文件了
+      printf("没有新文件了 列表循环\n");
+      channel[chnid].pos = 0;
     }
     close(channel[chnid].fd);
 
@@ -165,6 +165,7 @@ static int open_next(chnid_t chnid) {
       syslog(LOG_WARNING, "open(%s):%s", channel[chnid].mp3glob.gl_pathv[chnid],
              strerror(errno));
     } else {
+      printf("打开新文件了\n");
       channel[chnid].offset = 0;
       return 0;
     }
@@ -201,8 +202,10 @@ ssize_t mlib_readchn(chnid_t chnid, void *buf, size_t size) {
     } else /*len > 0*/ //真正读取到了数据
     {
       channel[chnid].offset += len;
-      syslog(LOG_DEBUG, "epoch : %f",
-             (channel[chnid].offset) / (80 * 1024.0));
+      struct stat buf;
+      fstat(channel[chnid].fd, &buf);
+      syslog(LOG_DEBUG, "epoch : %f%%",
+             (channel[chnid].offset) / (1.0*buf.st_size)*100);
       break;
     }
   }

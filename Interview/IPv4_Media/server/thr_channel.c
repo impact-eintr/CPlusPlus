@@ -41,9 +41,9 @@ static void *thr_channel_snder(void *ptr)
   sbufp->chnid = entry->chnid; // 频道号处理
   // 频道内容读取
   while(1) {
-    len = mlib_readchn(entry->chnid, sbufp->data, 320*1024/8);
+    len = mlib_readchn(entry->chnid, sbufp->data, 320*1024/8); // 320kbit/s
     syslog(LOG_DEBUG, "mlib_readchn() len: %d", len);
-    if (len <= 0) {
+    if (len < 0) {
       break;
     }
     if (sendto(serversd, sbufp, len + sizeof(chnid_t), 0, (void*)&sndaddr, sizeof(sndaddr)) < 0) {

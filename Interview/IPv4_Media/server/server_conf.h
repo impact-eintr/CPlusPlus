@@ -1,7 +1,7 @@
 #ifndef SERVER_CONF_H_
 #define SERVER_CONF_H_
 
-#define DEFAULT_MEDIADIR "/home/eintr/.media/medialib"
+#define DEFAULT_MEDIADIR "../medialib"
 #define DEFAULT_IF "enp4s0f3u2u2"
 
 enum
