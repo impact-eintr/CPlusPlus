@@ -11,32 +11,36 @@
 
 using namespace std;
 
-extern const uint64_t entryHeaderSize;
+extern const uint16_t entryHeaderSize; // keySize valueSize mark
+extern const uint16_t extraHeaderSize; // totalSize
 
 class entry : Serializable
 {
 public:
   entry() = default;
   entry(std::string key, std::string value, uint16_t mark):
-    key(key), value(value), keySize(key.size()), valueSize(value.size()), mark(mark) {}
-  ~entry() {
-    key.clear();
-  }
+    key(key), value(value), totalSize(key.size()+value.size()+entryHeaderSize), mark(mark) {}
+  ~entry() {}
 
   std::string serialize() {
     OutStream os;
-    os << keySize << valueSize << mark << key << value;
+    os << totalSize << mark << key << value;
     return os.str();
   }
 
   int deserialize(std::string &str) {
     InStream is(str);
-    is >> keySize >> valueSize >> mark;
+    is >> mark >> key >> value;
     return is.size();
   }
 
-  uint64_t getSize() {
-    return entryHeaderSize + uint64_t(keySize) + uint64_t(valueSize);
+  void decodeSize(std::string &str) {
+    InStream is(str);
+    is >> totalSize;
+  }
+
+  uint32_t getSize() {
+    return  totalSize;
   }
 
   void print_entry() {
@@ -46,8 +50,7 @@ public:
 public:
   std::string key;
   std::string value;
-  uint32_t keySize;
-  uint32_t valueSize;
+  uint32_t totalSize; // 我们期望key是远远小于value的
   uint16_t mark;
 };
 

@@ -10,7 +10,8 @@
 
 using namespace std;
 
-const uint64_t entryHeaderSize = 10;
+const uint16_t entryHeaderSize = sizeof(int) +sizeof(int) + sizeof(uint16_t);
+const uint16_t extraHeaderSize = sizeof(uint32_t);
 const string FileName = "minidb.data";
 const string MergeFileName = "minidb.merge";
 
@@ -31,26 +32,20 @@ void dbFile::mergedbFile(string path) {
 }
 
 entry dbFile::read(uint64_t off) {
-  char buf[entryHeaderSize] = {0};
+  char buf[extraHeaderSize] = {0};
   fs.seekg(off);
-  fs.read(buf, entryHeaderSize);
+  fs.read(buf, extraHeaderSize);
 
-  string s;
-  for (int i = 0;i < entryHeaderSize;++i)
-    s.push_back(buf[i]);
+  string hs(buf, extraHeaderSize);
   entry e;
-  e.deserialize(s); // get ks vs mark
-  char *kbuf = new char[e.keySize];
-  char *vbuf = new char[e.valueSize];
-  printf("%d %d\n",e.keySize, e.valueSize);
+  e.decodeSize(hs); // get totalSize
+  printf("%d \n",e.totalSize);
 
-  fs.read(buf, sizeof(int)); // 跳过内部标记
-  fs.read(kbuf, e.keySize);
-  fs.read(buf, sizeof(int));// 跳过内部标记
-  fs.read(vbuf, e.valueSize);
+  char *ebuf = new char[e.totalSize];
+  fs.read(ebuf, e.totalSize);
+  string es(ebuf, e.totalSize);
 
-  e.key = kbuf;
-  e.value = vbuf;
+  e.deserialize(es); // get mark key value
   e.print_entry();
   return e;
 }
@@ -61,11 +56,11 @@ void dbFile::write(entry &e) {
   offset += e.getSize();
 }
 
-//int main() {
-//  dbFile df("/home/eintr/.media");
-//
-//  entry e("123456789", "abcdefghigklmn", 1);
-//  df.write(e);
-//  df.read(0);
-//  df.fs.close();
-//}
+int main() {
+  dbFile df("/home/eintr/.media");
+
+  entry e("123456789", "abcdefghigklmn", 1);
+  df.write(e);
+  df.read(0);
+  df.fs.close();
+}
