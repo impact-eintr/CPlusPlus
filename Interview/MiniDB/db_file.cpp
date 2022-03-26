@@ -38,12 +38,12 @@ entry dbFile::read(uint64_t off) {
 
   string hs(buf, extraHeaderSize);
   entry e;
-  e.decodeSize(hs); // get totalSize
-  printf("%d \n",e.totalSize);
+  e.decodeSize(hs); // get getSize()
+  printf("%d \n",e.getSize());
 
-  char *ebuf = new char[e.totalSize];
-  fs.read(ebuf, e.totalSize);
-  string es(ebuf, e.totalSize);
+  char *ebuf = new char[e.getSize()];
+  fs.read(ebuf, e.getSize());
+  string es(ebuf, e.getSize());
 
   e.deserialize(es); // get mark key value
   e.print_entry();

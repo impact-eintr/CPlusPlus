@@ -50,8 +50,9 @@ public:
 public:
   std::string key;
   std::string value;
-  uint32_t totalSize; // 我们期望key是远远小于value的
   uint16_t mark;
+private:
+  uint32_t totalSize; // 我们期望key是远远小于value的
 };
 
 
