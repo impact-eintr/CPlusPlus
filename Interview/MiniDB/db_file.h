@@ -44,6 +44,8 @@ public:
   entry mread(int64_t);
   void mwrite(entry &);
 
+  inline void _open(const string&) = delete;
+  inline void _close(const string&) = delete;
   inline void _rename(const string &path) {
     fs.close();
     string fileName = path + "/" + FileName;
