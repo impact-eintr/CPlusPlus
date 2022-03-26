@@ -21,21 +21,21 @@ int deserialize(std::string &str, SerializableType &a) {
   return a.deserialize(str);
 }
 
-#define DEF_BASIC_TYPE_SERIALIZE(Type)          \
-  template <> std::string serialize(Type &b) {            \
-    std::string ret;                                      \
-    ret.append((const char *)&b, sizeof(Type)); \
-    return ret;                                      \
+#define DEF_BASIC_TYPE_SERIALIZE(Type)                                         \
+  template <> inline std::string serialize(Type &b) {                          \
+    std::string ret;                                                           \
+    ret.append((const char *)&b, sizeof(Type));                                \
+    return ret;                                                                \
   }
 
-#define DEF_BASIC_TYPE_DESERIALIZE(Type)        \
-  template <> int deserialize(std::string &str, Type &b) {  \
-    memcpy(&b, str.data(), sizeof(Type));       \
-    return sizeof(Type);                             \
+#define DEF_BASIC_TYPE_DESERIALIZE(Type)                                       \
+  template <> inline int deserialize(std::string &str, Type &b) {              \
+    memcpy(&b, str.data(), sizeof(Type));                                      \
+    return sizeof(Type);                                                       \
   }
 
-#define DEF_BASIC_TYPE_SERIALIZE_AND_DESERIALIZE(Type)  \
-  DEF_BASIC_TYPE_SERIALIZE(Type)                        \
+#define DEF_BASIC_TYPE_SERIALIZE_AND_DESERIALIZE(Type)                         \
+  DEF_BASIC_TYPE_SERIALIZE(Type)                                               \
   DEF_BASIC_TYPE_DESERIALIZE(Type)
 
 DEF_BASIC_TYPE_SERIALIZE_AND_DESERIALIZE(char)
@@ -53,7 +53,7 @@ DEF_BASIC_TYPE_SERIALIZE_AND_DESERIALIZE(float)
 DEF_BASIC_TYPE_SERIALIZE_AND_DESERIALIZE(double)
 
 // for C++ type std::string
-template <> std::string serialize(std::string &s) {
+template <> inline std::string serialize(std::string &s) {
   int len = s.size();
   std::string ret;
   ret.append(::serialize(len));
@@ -61,7 +61,7 @@ template <> std::string serialize(std::string &s) {
   return ret;
 }
 
-template <> int deserialize(std::string &str, std::string &s) {
+template <> inline int deserialize(std::string &str, std::string &s) {
   int len;
   ::deserialize(str, len);
   s = str.substr(sizeof(len), len);
@@ -133,8 +133,7 @@ public:
 class InStream {
 public:
   InStream(std::string &s) : str(s), total(s.size()) {}
-  InStream(char *s,size_t size) : total(size) {
-  }
+  InStream(char *s, size_t size) : total(size) {}
 
   template <typename SerializableType>
   InStream &operator>>(SerializableType &a) {
@@ -189,7 +188,7 @@ public:
     if (tempKey.size() > 0 && tempVal.size() == tempKey.size()) {
       for (size_t i = 0; i < tempKey.size(); ++i) {
         a.insert(
-          std::make_pair<BasicTypeA, BasicTypeB>(tempKey[i], tempVal[i]));
+            std::make_pair<BasicTypeA, BasicTypeB>(tempKey[i], tempVal[i]));
       }
     }
     return ret;
@@ -199,7 +198,7 @@ public:
 
 protected:
   std::string str;
-  char* buf;
+  char *buf;
   int total;
 };
 

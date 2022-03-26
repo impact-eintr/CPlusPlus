@@ -4,6 +4,8 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <cassert>
+#include <sys/stat.h>
 
 #include "db_file.h"
 #include "entry.h"
@@ -15,52 +17,55 @@ const uint16_t extraHeaderSize = sizeof(uint32_t);
 const string FileName = "minidb.data";
 const string MergeFileName = "minidb.merge";
 
-dbFile::dbFile(string path) {
+dbFile::dbFile(const string& path) {
   string fileName = path + "/" + FileName;
   fs.open(fileName, ios::in | ios::app);
-  fs.seekg(0, fs.end);
-  offset = fs.tellg();
-  fs.seekg(0, fs.beg);
+  struct stat res;
+  if (stat(fileName.data(), &res) == 0)
+    offset = res.st_size;
 }
 
-void dbFile::mergedbFile(string path) {
-  string fileName = path + "/" + MergeFileName;
-  fs.open(fileName, ios::in | ios::app);
-  fs.seekg(0, fs.end);
-  offset = fs.tellg();
-  fs.seekg(0, fs.beg);
-}
+entry dbFile::read(int64_t off) {
+  entry e;
+  if (offset <= off) {
+    return e;
+  }
 
-entry dbFile::read(uint64_t off) {
+  // 读取extraHeader 获取需要读的字节数
   char buf[extraHeaderSize] = {0};
   fs.seekg(off);
   fs.read(buf, extraHeaderSize);
-
   string hs(buf, extraHeaderSize);
-  entry e;
   e.decodeSize(hs); // get getSize()
-  printf("%d \n",e.getSize());
 
+  // 读取相应长度的数据 并反序列化
   char *ebuf = new char[e.getSize()];
   fs.read(ebuf, e.getSize());
   string es(ebuf, e.getSize());
-
+  delete [] ebuf;
   e.deserialize(es); // get mark key value
-  e.print_entry();
+
   return e;
 }
 
 void dbFile::write(entry &e) {
   string s = e.serialize();
-  fs.write(s.data(), s.size());
-  offset += e.getSize();
+  fs << s;
+  offset += e.getSize() + extraHeaderSize;
 }
 
-int main() {
-  dbFile df("/home/eintr/.media");
+mergeFile::mergeFile(const string& path) {
+  string fileName = path + "/" + MergeFileName;
+  fs.open(fileName, ios::in | ios::out | ios::trunc);
+  struct stat res;
+  if (stat(fileName.data(), &res) == 0)
+    offset = res.st_size;
+}
 
-  entry e("123456789", "abcdefghigklmn", 1);
-  df.write(e);
-  df.read(0);
-  df.fs.close();
+entry mergeFile::mread(int64_t off) {
+  return read(off);
+}
+
+void mergeFile::mwrite(entry &e) {
+  write(e);
 }
