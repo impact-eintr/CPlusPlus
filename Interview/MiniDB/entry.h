@@ -42,9 +42,9 @@ public:
     is >> totalSize;
   }
 
-  uint32_t getSize() { return totalSize; }
+  uint32_t getSize() const { return totalSize; }
 
-  void print_entry() {
+  void print_entry() const {
     std::cout << "key: " + key << " value: " << value << " mark: " << mark
               << std::endl;
   }

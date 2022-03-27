@@ -19,7 +19,7 @@ public:
   dbFile() = default;
   dbFile(const string &path);
 
-  inline int64_t size() { return offset; }
+  inline int64_t size() const { return offset; }
   inline void _open(const string &path) {
     string fileName = path + "/" + FileName;
     fs.open(fileName, ios::in | ios::app);
@@ -40,7 +40,7 @@ class mergeFile : dbFile {
 public:
   mergeFile(const string &path);
 
-  inline int64_t size() { return offset; }
+  inline int64_t size() const { return offset; }
   entry mread(int64_t);
   void mwrite(entry &);
 
