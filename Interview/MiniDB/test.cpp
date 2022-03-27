@@ -1,10 +1,13 @@
 #include "minidb.h"
 #include <iostream>
+#include <memory>
 
 using namespace std;
 
 int main() {
-  minidb *db = minidb_Factor().get("/tmp");
+  shared_ptr<minidb> db(minidb_Factor().get("/tmp")); // 建议使用智能指针
+  // 原生指针 记得 delete db; 这个bug调了半天 还以为虚析构函数出问题了
+  //minidb *db = minidb_Factor().get("/tmp");
   cout << db->get("k1") << endl;
   cout << db->get("k2") << endl;
   for (int i = 0;i < 1000000;++i) {

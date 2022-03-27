@@ -4,7 +4,6 @@
 
 class minidb {
 public:
-  minidb() {}
   virtual ~minidb() {}
 
   virtual void merge() = 0;

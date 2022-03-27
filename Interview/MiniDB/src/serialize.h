@@ -21,21 +21,21 @@ int deserialize(std::string &str, SerializableType &a) {
   return a.deserialize(str);
 }
 
-#define DEF_BASIC_TYPE_SERIALIZE(Type)                                         \
-  template <> inline std::string serialize(Type &b) {                          \
-    std::string ret;                                                           \
-    ret.append((const char *)&b, sizeof(Type));                                \
-    return ret;                                                                \
+#define DEF_BASIC_TYPE_SERIALIZE(Type)          \
+  template <> inline std::string serialize(Type &b) {     \
+    std::string ret;                                      \
+    ret.append((const char *)&b, sizeof(Type)); \
+    return ret;                                      \
   }
 
-#define DEF_BASIC_TYPE_DESERIALIZE(Type)                                       \
-  template <> inline int deserialize(std::string &str, Type &b) {              \
-    memcpy(&b, str.data(), sizeof(Type));                                      \
-    return sizeof(Type);                                                       \
+#define DEF_BASIC_TYPE_DESERIALIZE(Type)              \
+  template <> inline int deserialize(std::string &str, Type &b) { \
+    memcpy(&b, str.data(), sizeof(Type));             \
+    return sizeof(Type);                                   \
   }
 
-#define DEF_BASIC_TYPE_SERIALIZE_AND_DESERIALIZE(Type)                         \
-  DEF_BASIC_TYPE_SERIALIZE(Type)                                               \
+#define DEF_BASIC_TYPE_SERIALIZE_AND_DESERIALIZE(Type)  \
+  DEF_BASIC_TYPE_SERIALIZE(Type)                        \
   DEF_BASIC_TYPE_DESERIALIZE(Type)
 
 DEF_BASIC_TYPE_SERIALIZE_AND_DESERIALIZE(char)
@@ -188,7 +188,7 @@ public:
     if (tempKey.size() > 0 && tempVal.size() == tempKey.size()) {
       for (size_t i = 0; i < tempKey.size(); ++i) {
         a.insert(
-            std::make_pair<BasicTypeA, BasicTypeB>(tempKey[i], tempVal[i]));
+          std::make_pair<BasicTypeA, BasicTypeB>(tempKey[i], tempVal[i]));
       }
     }
     return ret;
