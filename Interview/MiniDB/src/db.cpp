@@ -2,43 +2,28 @@
 #include <cstdint>
 #include <map>
 #include <pthread.h>
+#include <sstream>
 #include <string>
 #include <valarray>
 #include <vector>
-#include <sstream>
 
+#include "db.h"
 #include "db_file.h"
 #include "entry.h"
 
 using namespace std;
 
-class minidb {
-public:
-  minidb(string path);
-  ~minidb() {merge();}
+minidb *minidb_Factor::get(const string &path) { return new db(path); }
 
-  void loadIndexesFromFile();
-  void merge();
-  void put(string, string);
-  string get(string);
-  void del(string);
-
-private:
-  map<string, int64_t> indexes;
-  dbFile df;
-  mergeFile mf;
-  string dirPath;
-  pthread_mutex_t mu;
-};
-
-minidb::minidb(string path)
-    : df(dbFile(path)), mf(mergeFile(path)), dirPath(path) {
+db::db(string path) : df(dbFile(path)), mf(mergeFile(path)), dirPath(path) {
   pthread_mutex_init(&mu, nullptr);
   // 加载索引
   loadIndexesFromFile();
 }
 
-void minidb::loadIndexesFromFile() {
+db::~db() { merge(); }
+
+void db::loadIndexesFromFile() {
   if (df.size() == 0) {
     return;
   }
@@ -59,7 +44,7 @@ void minidb::loadIndexesFromFile() {
   }
 }
 
-void minidb::merge() {
+void db::merge() {
   if (df.size() == 0) {
     return;
   }
@@ -90,7 +75,7 @@ void minidb::merge() {
   df._open(dirPath);
 }
 
-void minidb::put(string k, string v) {
+void db::put(string k, string v) {
   if (k.size() == 0) {
     return;
   }
@@ -103,7 +88,7 @@ void minidb::put(string k, string v) {
   pthread_mutex_unlock(&mu);
 }
 
-string minidb::get(string k) {
+string db::get(string k) {
   if (k.size() == 0) {
     return "";
   }
@@ -124,7 +109,7 @@ string minidb::get(string k) {
   return "";
 }
 
-void minidb::del(string k) {
+void db::del(string k) {
   if (k.size() == 0) {
     return;
   }
@@ -134,19 +119,4 @@ void minidb::del(string k) {
   df.write(e);
   indexes.erase(k);
   pthread_mutex_unlock(&mu);
-}
-
-int main() {
-  minidb db("/tmp");
-  cout << db.get("k1") << endl;
-  cout << db.get("k2") << endl;
-  for (int i = 0;i < 1000000;++i) {
-    db.put("k"+to_string(i), "v"+to_string(i));
-  }
-  cout << db.get("k3") << endl;
-  cout << db.get("k4") << endl;
-  db.del("k3");
-  db.del("k4");
-  cout << db.get("k3") << endl;
-  cout << db.get("k4") << endl;
 }
