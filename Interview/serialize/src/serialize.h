@@ -10,16 +10,19 @@
 #include <utility>
 #include <vector>
 
+// 模板函数 serialize
 template <typename SerializableType>
 std::string serialize(SerializableType &a) {
   return a.serialize();
 }
 
+// 模板函数 deserialize
 template <typename SerializableType>
 int deserialize(std::string &str, SerializableType &a) {
   return a.deserialize(str);
 }
 
+// 模板特化函数 serialize
 #define DEF_BASIC_TYPE_SERIALIZE(Type)                                         \
   template <> std::string serialize(Type &b) {                                 \
     std::string ret;                                                           \
@@ -27,6 +30,7 @@ int deserialize(std::string &str, SerializableType &a) {
     return ret;                                                                \
   }
 
+// 模板特化函数 deserialize
 #define DEF_BASIC_TYPE_DESERIALIZE(Type)                                       \
   template <> int deserialize(std::string &str, Type &b) {                     \
     memcpy(&b, str.data(), sizeof(Type));                                      \

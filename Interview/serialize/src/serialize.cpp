@@ -17,7 +17,8 @@ public:
 
   virtual int deserialize(std::string &str) {
     InStream is(str);
-    is >> keySize >> valueSize >> mark >> key >> value;
+    //is >> keySize >> valueSize >> mark >> key >> value;
+    is >> keySize >> valueSize >> mark;
     return is.size();
   }
 
@@ -63,6 +64,10 @@ int main() {
   entry e1("k1", "v1", 1);
   e1.print_entry();
   std::string ss = e1.serialize();
+  for (int i = 0;i < ss.size();++i) {
+    printf("%d", ss[i]);
+  }
+  std::cout << ss.size() << std::endl;
 
   entry e2;
   e2.deserialize(ss);
