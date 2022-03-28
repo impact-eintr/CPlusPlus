@@ -12,17 +12,13 @@
 
 using namespace std;
 
-const uint16_t entryHeaderSize = sizeof(int) +sizeof(int) + sizeof(uint16_t);
-const uint16_t extraHeaderSize = sizeof(uint32_t);
-const string FileName = "minidb.data";
-const string MergeFileName = "minidb.merge";
-
 dbFile::dbFile(const string& path) {
   string fileName = path + "/" + FileName;
   fs.open(fileName, ios::in | ios::app);
   struct stat res;
-  if (stat(fileName.data(), &res) == 0)
+  if (stat(fileName.data(), &res) == 0) {
     offset = res.st_size;
+  }
 }
 
 entry dbFile::read(int64_t off) {

@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS	+=-Wall -g
+CFLAGS	+=-Wall -std=c++11 -g -Wl,--whole-archive -lpthread -Wl,--no-whole-archive
 
 LIB = libminidb.a
 LLIB = minidb

@@ -4,6 +4,7 @@
 #include "minidb.h"
 #include "db_file.h"
 #include "entry.h"
+#include "RWMutex.h"
 
 class db : public minidb {
 public:
@@ -24,6 +25,7 @@ private:
   mergeFile mf;
   string dirPath;
   pthread_mutex_t mu;
+  RWMutex mu_;
 };
 
 #endif // DB_H_

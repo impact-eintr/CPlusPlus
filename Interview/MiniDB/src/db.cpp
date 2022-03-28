@@ -6,6 +6,7 @@
 #include <string>
 #include <valarray>
 #include <vector>
+#include <thread>
 
 #include "db.h"
 #include "db_file.h"
@@ -40,7 +41,7 @@ void db::loadIndexesFromFile() {
       // 删除内存中的key
       indexes.erase(e.key);
     }
-    offset += e.getSize() + extraHeaderSize; // TODO 优化一下封装
+    offset += e.getSize() + extraHeaderSize;
   }
 }
 
@@ -80,28 +81,41 @@ void db::put(string k, string v) {
     return;
   }
 
+#ifdef MUTEX
   pthread_mutex_lock(&mu);
+#else
+  CWriteLock writeLock(mu_);
+#endif
   int64_t offset = df.size();
   entry e(k, v, PUT);
   df.write(e);
   indexes[k] = offset;
+#ifdef MUTEX
   pthread_mutex_unlock(&mu);
+#endif
 }
 
 string db::get(string k) {
   if (k.size() == 0) {
     return "";
   }
-
+#ifdef MUTEX
   pthread_mutex_lock(&mu);
+#else
+  CReadLock readLock(mu_);
+#endif
   if (indexes.find(k) == indexes.end()) {
+#ifdef MUTEX
     pthread_mutex_unlock(&mu);
+#endif
     return "";
   }
 
   int64_t offset = indexes[k];
   entry e = df.read(offset);
+#ifdef MUTEX
   pthread_mutex_unlock(&mu);
+#endif
 
   if (e.getSize() != 0) {
     return e.value;
@@ -114,9 +128,15 @@ void db::del(string k) {
     return;
   }
 
+#ifdef MUTEX
   pthread_mutex_lock(&mu);
+#else
+  CWriteLock writeLock(mu_);
+#endif
   entry e(k, "", DEL);
   df.write(e);
   indexes.erase(k);
+#ifdef MUTEX
   pthread_mutex_unlock(&mu);
+#endif
 }

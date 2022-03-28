@@ -14,8 +14,8 @@
 
 using namespace std;
 
-extern const uint16_t entryHeaderSize; // keySize valueSize mark
-extern const uint16_t extraHeaderSize; // totalSize
+#define entryHeaderSize sizeof(int) +sizeof(int) + sizeof(uint16_t) // keySize valueSize mark
+#define extraHeaderSize sizeof(uint32_t)                            // totalSize
 
 class entry : Serializable {
 public:

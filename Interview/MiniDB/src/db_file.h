@@ -11,8 +11,8 @@
 
 #include "entry.h"
 
-extern const string FileName;
-extern const string MergeFileName;
+#define FileName "minidb.data"
+#define MergeFileName "minidb.merge"
 
 class dbFile {
 public:
