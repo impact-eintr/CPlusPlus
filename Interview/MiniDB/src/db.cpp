@@ -1,6 +1,8 @@
 #include <cassert>
 #include <cstdint>
+#include <functional>
 #include <map>
+#include <memory>
 #include <pthread.h>
 #include <sstream>
 #include <string>
@@ -11,18 +13,26 @@
 #include "db.h"
 #include "db_file.h"
 #include "entry.h"
+#include "minidb.h"
+#include "timer/timer.h"
 
 using namespace std;
 
-minidb *minidb_Factor::get(const string &path) { return new db(path); }
+std::shared_ptr<minidb> minidb_Factor::get(const string &path) {
+  auto ptr = std::make_shared<db>(path);
+  ptr->gc();
+  return ptr;
+}
 
-db::db(string path) : df(dbFile(path)), mf(mergeFile(path)), dirPath(path) {
+db::db(string path) : df(dbFile(path)), mf(mergeFile(path)), dirPath(path), tws_(50) {
   pthread_mutex_init(&mu, nullptr);
   // 加载索引
   loadIndexesFromFile();
 }
 
-db::~db() { merge(); }
+db::~db() {
+  tws_.Stop();
+}
 
 void db::loadIndexesFromFile() {
   if (df.size() == 0) {
@@ -46,13 +56,18 @@ void db::loadIndexesFromFile() {
 }
 
 void db::merge() {
+#ifdef MUTEX
+  pthread_mutex_lock(&mu);
+#else
+  CWriteLock writeLock(mu_);
+#endif
   if (df.size() == 0) {
     return;
   }
 
   vector<entry> validEntries;
   int64_t offset = 0;
-
+  std::cout << "开始垃圾回收" << std::endl;
   while (1) {
     entry e = df.read(offset);
     if (e.getSize() == 0) {
@@ -74,6 +89,22 @@ void db::merge() {
   df._close(dirPath);
   mf._rename(dirPath);
   df._open(dirPath);
+  std::cout << "垃圾回收结束" << std::endl;
+#ifdef MUTEX
+  pthread_mutex_unlock(&mu);
+#endif
+}
+
+void db::gc() {
+  tws_.AppendTimeWheel(24, 60 * 60 * 1000, "HourTimeWheel");
+  tws_.AppendTimeWheel(60, 60 * 1000, "MinuteTimeWheel");
+  tws_.AppendTimeWheel(60, 1000, "SecondTimeWheel");
+  tws_.AppendTimeWheel(1000 / 50, 50, "MillisecondTimeWheel");
+  tws_.Start();
+  tws_.CreateTimerEvery(1000, [this]() {
+    std::cout << "开始定时GC" << std::endl;
+    this->merge();
+  });
 }
 
 void db::put(string k, string v) {

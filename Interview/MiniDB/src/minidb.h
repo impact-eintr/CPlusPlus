@@ -1,6 +1,7 @@
 #ifndef MINIDB_H_
 #define MINIDB_H_
 #include <string>
+#include <memory>
 
 //#define MUTEX
 
@@ -16,7 +17,8 @@ public:
 
 class minidb_Factor {
 public:
-  minidb *get(const std::string& path);
+  //minidb *get(const std::string& path);
+  std::shared_ptr<minidb> get(const std::string& path);
 };
 
 #endif // MINIDB_H_

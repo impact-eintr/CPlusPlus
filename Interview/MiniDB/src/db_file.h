@@ -26,6 +26,7 @@ public:
     struct stat res;
     if (stat(fileName.data(), &res) == 0)
       offset = res.st_size;
+    std::cout << offset << std::endl;
   }
   inline void _close(const string &path) { fs.close(); }
   entry read(int64_t);
@@ -52,6 +53,12 @@ public:
     string mergefileName = path + "/" + MergeFileName;
     remove(fileName.data());
     rename(mergefileName.data(), fileName.data());
+
+    fileName = path + "/" + MergeFileName;
+    fs.open(fileName, ios::in | ios::out | ios::trunc);
+    struct stat res;
+    if (stat(fileName.data(), &res) == 0)
+      offset = res.st_size;
   }
 };
 

@@ -8,9 +8,10 @@ using namespace std;
 void race() {
   shared_ptr<minidb> db_ptr(minidb_Factor().get("/tmp"));
   thread thr1([db_ptr]() {
-    for (int i = 0; i < 100000; ++i) {
-      //cout << db_ptr->get("k" + to_string(i)) << endl;
-      db_ptr->get("k" + to_string(i));
+    for (int i = 0; i < 1000; ++i) {
+      //db_ptr->get("k" + to_string(i));
+      cout << db_ptr->get("k" + to_string(i)) << endl;
+      this_thread::sleep_for(std::chrono::milliseconds(20));
     }
   });
   //thread thr2([db_ptr]() {
@@ -53,5 +54,6 @@ void batch() {
 }
 
 int main() {
+  batch();
   race();
 }

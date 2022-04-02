@@ -5,16 +5,18 @@
 #include "db_file.h"
 #include "entry.h"
 #include "RWMutex.h"
+#include "timer/time_wheel_scheduler.h"
 
 class db : public minidb {
 public:
   db(string path);
   ~db();
 
-  void merge();
   void put(string, string);
   string get(string);
   void del(string);
+  void gc();
+  void merge();
 
 private:
   void loadIndexesFromFile();
@@ -26,6 +28,7 @@ private:
   string dirPath;
   pthread_mutex_t mu;
   RWMutex mu_;
+  TimeWheelScheduler tws_;
 };
 
 #endif // DB_H_
