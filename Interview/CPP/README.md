@@ -595,6 +595,109 @@ std::cout << std::is_rvalue_reference<decltype(b)>::value << std::endl;
 
 ## 深入理解移动语义
 
+``` c++
+#include <cstdlib>
+#include <iostream>
+#include <vector>
+
+class BigObj {
+public:
+  explicit BigObj(size_t length) noexcept: length_(length), data_(new int[length]) {
+    std::cout << "构造BigObject" << std::endl;
+  }
+
+  ~BigObj() {
+    if (data_ != nullptr) {
+      delete[] data_;
+      length_ = 0;
+    }
+  }
+
+  // 拷贝构造函数
+   BigObj(const BigObj &other) noexcept
+      : length_(other.length_), data_(new int[other.length_]) {
+    std::cout << "使用拷贝构造" << std::endl;
+    std::copy(other.data_, other.data_ + length_, data_);
+  }
+  // 赋值运算符
+  BigObj &operator=(BigObj &other) {
+    std::cout << "使用赋值" << std::endl;
+    if (this != &other) {
+      delete[] data_;
+      length_ = other.length_;
+      data_ = new int[length_];
+      std::copy(other.data_, other.data_ + length_, data_);
+    }
+    return *this;
+  }
+  // 移动构造函数
+  // 这里要将移动构造函数声明为noexcept表示它不会抛出异常，
+  // 这样vector<BigObj>在复制时就会使用移动迭代器（就是会包装一层std::move），从而触发移动构造。
+  BigObj(BigObj &&other) noexcept{
+    std::cout << "使用移动构造" << std::endl;
+    data_ = other.data_;
+    length_ = other.length_;
+    other.data_ = nullptr;
+    other.length_ = 0;
+  }
+  // 移动赋值运算符
+  BigObj &operator=(BigObj &&other) {
+    std::cout << "使用移动赋值" << std::endl;
+    if (this != &other) {
+      delete[] data_;
+      data_ = other.data_;
+      length_ = other.length_;
+      other.data_ = nullptr;
+      other.length_ = 0;
+    }
+    return *this;
+  }
+
+private:
+  size_t length_;
+  int *data_;
+};
+
+int main() {
+  std::vector<BigObj> v;
+  std::cout << "TEST1\n";
+  v.push_back(BigObj(25));
+  v.push_back(BigObj(75));
+
+  std::cout << "TEST2\n";
+  v.push_back(BigObj(25));
+  v.push_back(BigObj(75));
+
+  std::cout << "TEST3\n";
+  v.push_back(BigObj(25));
+  v.push_back(BigObj(25));
+  v.push_back(BigObj(25));
+  v.push_back(BigObj(25));
+
+  std::cout << "TEST4\n";
+  v.push_back(BigObj(75));
+
+  //v.insert(v.begin() + 1, BigObj(50));
+  return 0;
+}
+
+```
+
+### 生成时机
+
+众所周知，在C++中有四个特殊的成员函数：默认构造函数、析构函数，拷贝构造函数，拷贝赋值运算符。之所以称之为特殊的成员函数，这是因为如何开发人员没有定义这四个成员函数，那么编译器则在满足某些特定条件(仅在需要的时候才生成，比如某个代码使用它们但是它们没有在类中明确声明)下，自动生成。这些由编译器生成的特殊成员函数是public且inline。
+
+自C++11起，引入了另外两只特殊的成员函数：移动构造函数和移动赋值运算符。如果开发人员没有显示定义移动构造函数和移动赋值运算符，那么编译器也会生成默认。与其他四个特殊成员函数不同，编译器生成默认的移动构造函数和移动赋值运算符需要，满足以下条件：
+
+- 如果一个类定义了自己的拷贝构造函数,拷贝赋值运算符或者析构函数(这三者之一，表示程序员要自己处理对象的复制或释放问题)，编译器就不会为它生成默认的移动构造函数或者移动赋值运算符，这样做的目的是防止编译器生成的默认移动构造函数或者移动赋值运算符不是开发人员想要的
+- 如果类中没有提供移动构造函数和移动赋值运算符，且编译器不会生成默认的，那么我们在代码中通过std::move()调用的移动构造或者移动赋值的行为将被转换为调用拷贝构造或者赋值运算符
+- 只有一个类没有显示定义拷贝构造函数、赋值运算符以及析构函数，且类的每个非静态成员都可以移动时，编译器才会生成默认的移动构造函数或者移动赋值运算符
+- 如果显式声明了移动构造函数或移动赋值运算符，则拷贝构造函数和拷贝赋值运算符将被 隐式删除（因此程开发人员必须在需要时实现拷贝构造函数和拷贝赋值运算符）
+与拷贝操作一样，如果开发人员定义了移动操作，那么编译器就不会生成默认的移动操作，但是编译器生成移动操作的行为和生成拷贝操作的行为有些许不同，如下：
+
+两个拷贝操作是独立的：声明一个不会限制编译器生成另一个。所以如果你声明一个拷贝构造函数，但是没有声明拷贝赋值运算符，如果写的代码用到了拷贝赋值，编译器会帮助你生成拷贝赋值运算符。同样的，如果你声明拷贝赋值运算符但是没有拷贝构造函数，代码用到拷贝构造函数时编译器就会生成它。上述规则在C++98和C++11中都成立。
+两个移动操作不是相互独立的。如果你声明了其中一个，编译器就不再生成另一个。如果你给类声明了，比如，一个移动构造函数，就表明对于移动操作应怎样实现，与编译器应生成的默认逐成员移动有些区别。如果逐成员移动构造有些问题，那么逐成员移动赋值同样也可能有问题。所以声明移动构造函数阻止编译器生成移动赋值运算符，声明移动赋值运算符同样阻止编译器生成移动构造函数。
+
 ## 内存泄露
 
 ## 智能指针
