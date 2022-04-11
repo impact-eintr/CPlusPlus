@@ -3,7 +3,6 @@
 #include <assert.h>
 #include <string.h>
 #include <stdint.h>
-#include <sys/types.h>
 
 #include "../headers/algorithm.h"
 
@@ -26,8 +25,8 @@ void print_hashtable(hashtable_t *tab) {
 
 // BKDR Hash Function
 static uint64_t hash_function(char *str) {
-  unsigned int seed = 13131; // 31 131 1313 13131 131313 etc..
-  unsigned int hash = 0;
+  uint32_t seed = 13131; // 31 131 1313 13131 131313 etc..
+  uint32_t hash = 0;
 
   while (*str) {
     hash = hash * seed + (*str++);
