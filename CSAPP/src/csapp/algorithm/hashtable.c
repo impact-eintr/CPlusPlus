@@ -17,24 +17,23 @@ void print_hashtable(hashtable_t *tab) {
     hashtable_bucket_t *b = tab->directory[i];
     printf("[%d] local %d = %p: ", i, b->localdepth, b);
     for (int j = 0; j < b->counter; ++j) {
-      printf("%s, ", b->karray[j]);
+      printf("%s:%ld ,", b->karray[j], b->varray[j]);
     }
     printf("\n");
   }
 }
 #endif
 
+// BKDR Hash Function
 static uint64_t hash_function(char *str) {
-  int p = 31;
-  int m = 1000000007;
+  unsigned int seed = 13131; // 31 131 1313 13131 131313 etc..
+  unsigned int hash = 0;
 
-  int k = p;
-  int v = 0;
-  for (int i = 0; i < strlen(str); ++i) {
-    v = (v + ((int)str[i] * k) % m) % m;
-    k = (k * p) % m;
+  while (*str) {
+    hash = hash * seed + (*str++);
   }
-  return v;
+
+  return (hash & 0x7FFFFFFF);
 }
 
 static uint64_t lowbits_n(uint64_t num, int length) {
@@ -45,7 +44,7 @@ static uint64_t lowbits_n(uint64_t num, int length) {
 static void split_bucket_full(hashtable_t *tab, hashtable_bucket_t *b);
 static void insert_bucket_tail(hashtable_t *tab, hashtable_bucket_t *b, char *key, uint64_t val);
 
-hashtable_t *hashtable_construct(int size) {
+hashtable_t *_hashtable_construct(int size) {
   hashtable_t *tab = malloc(sizeof(hashtable_t));
 
   tab->globaldepth = 1;
@@ -111,13 +110,22 @@ void hashtable_free(hashtable_t *tab) {
 
 int hashtable_get(hashtable_t *tab, char *key, uint64_t *valptr) {
   uint64_t hid64 = hash_function(key);
-  uint64_t hid = lowbits_n(hid64, tab->globaldepth);
 
-  hashtable_bucket_t *b = tab->directory[hid];
-  for (int i = 0;i < b->counter; ++i) {
-    if (strcmp(b->karray[i], key) == 0) {
+  uint64_t hid = lowbits_n(hid64, tab->globaldepth);
+  hashtable_bucket_t *b0 = tab->directory[hid];
+  hashtable_bucket_t *b1 = tab->directory[(hid + (1 << (tab->globaldepth - 1)))%tab->num];
+
+  for (int i = 0;i < b0->counter; ++i) {
+    if (strcmp(b0->karray[i], key) == 0) {
       // found
-      *valptr = b->varray[i];
+      *valptr = b0->varray[i];
+      return 1;
+    }
+  }
+  for (int i = 0;i < b1->counter; ++i) {
+    if (strcmp(b1->karray[i], key) == 0) {
+      // found
+      *valptr = b1->varray[i];
       return 1;
     }
   }
@@ -137,8 +145,6 @@ hashtable_t *hashtable_insert(hashtable_t *tab, char *key, uint64_t value) {
     return tab;
   } else { // 扩容
     if (b->localdepth == tab->globaldepth) {
-      printf("翻倍扩容 扩容前\n");
-      print_hashtable(tab);
       // extend the array - double the size
       hashtable_bucket_t **old_array = tab->directory;
       int old_num = tab->num;
@@ -159,21 +165,14 @@ hashtable_t *hashtable_insert(hashtable_t *tab, char *key, uint64_t value) {
       }
 
       // for the bucket to be inserted, split
-      printf("之前准备插入%ld, depth:%d\n", hid, tab->globaldepth-1);
-      printf("%d\n", b->counter);
       split_bucket_full(tab, b);
-      printf("%d\n", b->counter);
 
       // finally, insert the input pair
       hid = lowbits_n(hid64, tab->globaldepth);
-      printf("现在准备插入%ld, depth:%d\n", hid, tab->globaldepth);
       insert_bucket_tail(tab, tab->directory[hid], key, value);
 
       free(old_array);
-      printf("翻倍扩容 扩容后\n");
-      print_hashtable(tab);
       return tab;
-
     } else {
       split_bucket_full(tab, b);
       insert_bucket_tail(tab, tab->directory[hid], key, value);
@@ -183,6 +182,7 @@ hashtable_t *hashtable_insert(hashtable_t *tab, char *key, uint64_t value) {
 
   return NULL;
 }
+
 
 // 对某个桶及其对称位置的桶重新分配数据
 static void split_bucket_full(hashtable_t *tab, hashtable_bucket_t *b) {
@@ -217,9 +217,9 @@ static void split_bucket_full(hashtable_t *tab, hashtable_bucket_t *b) {
   for (int i = 0; i < before_counter; ++i) {
     char *key = b->karray[i];
     uint64_t val = b->varray[i];
-
     hid64 = hash_function(key);
-    printf("%lx %ld ", hid64, (hid64 >> before_localdepth) & 0x1);
+    uint64_t hid = lowbits_n(hid64, before_localdepth+1);
+
     if (((hid64 >> before_localdepth) & 0x1) == 1) {
       // move to b1
       b1->karray[b1->counter] = key;
@@ -233,7 +233,6 @@ static void split_bucket_full(hashtable_t *tab, hashtable_bucket_t *b) {
       b0->counter += 1;
     }
   }
-  printf("\n");
 
   // clear the remaining in b0
   for (int i = b0->counter; i <= tab->size - 1; ++i) {
@@ -248,15 +247,10 @@ static void split_bucket_full(hashtable_t *tab, hashtable_bucket_t *b) {
   for (int highbits = 0; highbits < (1 << (tab->globaldepth - before_localdepth)); ++highbits) {
     // highbits is the permutation of high address bits in hid
     uint64_t hid = hid_lowbits + (highbits << before_localdepth);
-    //if ((highbits & 0x1) == 0) {
-    if (((hid64 >> before_localdepth) & highbits) == 1) {
-      tab->directory[hid] = b0;
-      printf("b0 catch: hid_lowbits :%ld highbits :%d before_localdepth :%d hid :%ld\n",
-             hid_lowbits, highbits,before_localdepth, hid);
-    } else {
+    if ((highbits & 0x1) == 1) {
       tab->directory[hid] = b1;
-      printf("b1 catch: hid_lowbits :%ld highbits :%d before_localdepth :%d hid :%ld\n",
-             hid_lowbits, highbits, before_localdepth, hid);
+    } else {
+      tab->directory[hid] = b0;
     }
   }
 }
@@ -271,11 +265,8 @@ static void insert_bucket_tail(hashtable_t *tab, hashtable_bucket_t *b,
   // insert the key
   b->karray[b->counter] = malloc((strlen(key) + 1) * sizeof(char));
   strcpy(b->karray[b->counter], key);
-
   // insert the value
   b->varray[b->counter] = val;
-
   // update counter
   b->counter++;
 }
-

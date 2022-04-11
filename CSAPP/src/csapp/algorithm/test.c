@@ -1,29 +1,29 @@
-#include <stdlib.h>
-#include <stdio.h>
 #include <stdint.h>
-
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "../headers/algorithm.h"
 
+#define TIMES (10000000)
+
 int main() {
-  hashtable_t *tab = hashtable_construct(8);
-  for (int i = 0;i < 100; ++i) {
-    char buf[8];
+  hashtable_t *tab = hashtable_construct();
+  for (int i = 0; i < TIMES; ++i) {
+    char buf[1024];
     sprintf(buf, "key%d", i);
-    hashtable_insert(tab, buf, i);
+    hashtable_insert(tab, buf, i + 100);
   }
 
-  uint64_t res = 0;
-  hashtable_get(tab, "key0", &res);
-  printf("0x%lx\n", res);
-  hashtable_get(tab, "tkey1", &res);
-  printf("0x%lx\n", res);
-  hashtable_get(tab, "key2", &res);
-  printf("0x%lx\n", res);
-  hashtable_get(tab, "key3", &res);
-  printf("0x%lx\n", res);
-
-  print_hashtable(tab);
-
+  for (int i = 0; i < TIMES; ++i) {
+    uint64_t res = 0;
+    char buf[8];
+    sprintf(buf, "key%d", i);
+    hashtable_get(tab, buf, &res);
+    if (res != 0) {
+      printf("%s : %ld\n", buf, res);
+    } else {
+      printf("没找到 %s\n", buf);
+    }
+  }
   hashtable_free(tab);
 }
