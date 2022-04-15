@@ -15,7 +15,7 @@ static void trie_dfs_print(trie_node_t *x, int level, char c) {
     if (level > 0) {
       for (int i = 0; i < level - 1; ++i)
         printf("\t");
-      printf("|_[%c] %p\n", c, x);
+      printf("|_[%c] 0x%lx\n", c, x->isvalue == 1 ? x->value : 0);
     }
 
     assert(x->next != NULL);
@@ -32,7 +32,7 @@ static void trie_dfs_print(trie_node_t *x, int level, char c) {
     if (level > 0) {
       for (int i = 0; i < level - 1; ++i)
         printf("\t");
-      printf("|_[%c] %p\n", c, x);
+      printf("|_[%c] 0x%lx\n", c, x->isvalue == 1 ? x->value : 0);
     }
   }
 }

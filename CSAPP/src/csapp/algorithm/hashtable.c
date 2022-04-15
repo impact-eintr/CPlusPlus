@@ -112,19 +112,11 @@ int hashtable_get(hashtable_t *tab, char *key, uint64_t *valptr) {
 
   uint64_t hid = lowbits_n(hid64, tab->globaldepth);
   hashtable_bucket_t *b0 = tab->directory[hid];
-  hashtable_bucket_t *b1 = tab->directory[(hid + (1 << (tab->globaldepth - 1)))%tab->num];
 
   for (int i = 0;i < b0->counter; ++i) {
     if (strcmp(b0->karray[i], key) == 0) {
       // found
       *valptr = b0->varray[i];
-      return 1;
-    }
-  }
-  for (int i = 0;i < b1->counter; ++i) {
-    if (strcmp(b1->karray[i], key) == 0) {
-      // found
-      *valptr = b1->varray[i];
       return 1;
     }
   }

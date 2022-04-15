@@ -74,21 +74,22 @@ static void lazy_initialize_trie() {
 }
 
 int main() {
-  trie_node_t *tn = trie_construct();
-  trie_insert(tn, "abcdef", 2022);
-  trie_insert(tn, "aabbcc", 2);
-  trie_insert(tn, "aababc", 3);
-  uint64_t val = 0;
-  trie_get(tn, "aabbcc", &val);
-  printf("%ld\n", val);
-  val = 0;
-  trie_get(tn, "aabbdd", &val);
-  printf("%ld\n", val);
-  val = 0;
-  trie_get(tn, "aababc", &val);
-  printf("%ld\n", val);
+  //trie_node_t *tn = trie_construct();
+  //trie_insert(tn, "abcdef", 2022);
+  //trie_insert(tn, "aabbcc", 2);
+  //trie_insert(tn, "aababc", 3);
+  //uint64_t val = 0;
+  //trie_get(tn, "aabbcc", &val);
+  //printf("%ld\n", val);
+  //val = 0;
+  //trie_get(tn, "aabbdd", &val);
+  //printf("%ld\n", val);
+  //val = 0;
+  //trie_get(tn, "aababc", &val);
+  //printf("%ld\n", val);
 
-  trie_print(tn);
-  trie_free(tn);
-  //lazy_initialize_trie();
+  //trie_print(tn);
+  //trie_free(tn);
+  lazy_initialize_trie();
+  trie_print(operator_mapping);
 }
