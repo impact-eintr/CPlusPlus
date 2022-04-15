@@ -11,13 +11,14 @@
 
 #ifdef DEBUG_TRIE
 static void trie_dfs_print(trie_node_t *x, int level, char c) {
-  if (x != NULL) {
+  if (x->next != NULL) {
     if (level > 0) {
       for (int i = 0; i < level - 1; ++i)
         printf("\t");
-      printf("[%c] %p\n", c, x);
+      printf("|_[%c] %p\n", c, x);
     }
 
+    assert(x->next != NULL);
     for (int j = 0; j < x->next->num; ++j) {
       hashtable_bucket_t *b = x->next->directory[j];
       for (int k = 0; k < b->counter; ++k) {
@@ -26,6 +27,12 @@ static void trie_dfs_print(trie_node_t *x, int level, char c) {
         assert(strlen(key) >= 1);
         trie_dfs_print(subtree, level + 1, key[0]);
       }
+    }
+  } else {
+    if (level > 0) {
+      for (int i = 0; i < level - 1; ++i)
+        printf("\t");
+      printf("|_[%c] %p\n", c, x);
     }
   }
 }
@@ -107,7 +114,6 @@ trie_node_t *trie_insert(trie_node_t *root, char *key, uint64_t value) {
       n->next = NULL; // leaf node has no next
 
       p->next = hashtable_insert(p->next, hashkey, (uint64_t)n);
-
       // goto next node
       p = n;
       continue;
